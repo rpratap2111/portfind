@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync/atomic"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -226,12 +225,31 @@ func launchTUI() error {
 		}
 		path = found
 	}
-	cmd := exec.Command(path)
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NEW_CONSOLE}
-	if err := cmd.Start(); err != nil {
+	return startInNewConsole(path)
+}
+
+// startInNewConsole runs path in a new console window. It calls CreateProcess
+// directly because os/exec always passes explicit std handles (the null device
+// when unset), which would leave the TUI drawing into nothing instead of into
+// its new console.
+func startInNewConsole(path string) error {
+	cmdline, err := windows.UTF16PtrFromString(windows.ComposeCommandLine([]string{path}))
+	if err != nil {
+		return err
+	}
+	var dir *uint16
+	if home, err := os.UserHomeDir(); err == nil {
+		dir, _ = windows.UTF16PtrFromString(home)
+	}
+	si := windows.StartupInfo{Cb: uint32(unsafe.Sizeof(windows.StartupInfo{}))}
+	var pi windows.ProcessInformation
+	if err := windows.CreateProcess(nil, cmdline, nil, nil, false,
+		windows.CREATE_NEW_CONSOLE|windows.CREATE_UNICODE_ENVIRONMENT, nil, dir, &si, &pi); err != nil {
 		return fmt.Errorf("start %s: %w", path, err)
 	}
-	return cmd.Process.Release()
+	windows.CloseHandle(pi.Thread)
+	windows.CloseHandle(pi.Process)
+	return nil
 }
 
 // ErrAlreadyRunning is returned by Run when another tray instance owns the icon.
