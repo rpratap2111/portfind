@@ -3,8 +3,8 @@
 #   irm https://raw.githubusercontent.com/rpratap2111/portfind/main/uninstall.ps1 | iex
 #
 # Removes the executables, the PATH entry and the Start menu shortcuts added by
-# install.ps1. Your kill history (%LOCALAPPDATA%\portfind\history.db) is kept
-# unless you set:
+# install.ps1, and turns off "Start with Windows" if the tray app enabled it.
+# Your kill history (%LOCALAPPDATA%\portfind\history.db) is kept unless you set:
 #   $env:PORTFIND_PURGE_HISTORY = "1"
 # If you installed to a custom directory, set $env:PORTFIND_INSTALL_DIR to it.
 
@@ -46,6 +46,35 @@ function Remove-PortfindShortcuts([string]$ProgramsDir = [Environment]::GetFolde
     return $removed
 }
 
+# Remove-PortfindAutostart undoes "Start with Windows": the Run value the tray
+# app writes, and a Startup-folder shortcut to portfind-tray.exe if someone
+# made one by hand.
+function Remove-PortfindAutostart(
+    [string]$RunKey = 'Software\Microsoft\Windows\CurrentVersion\Run',
+    [string]$StartupDir = [Environment]::GetFolderPath('Startup')
+) {
+    $removed = @()
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($RunKey, $true)
+    if ($key) {
+        try {
+            if ($null -ne $key.GetValue('portfind-tray')) {
+                $key.DeleteValue('portfind-tray')
+                $removed += 'Start with Windows'
+            }
+        } finally {
+            $key.Close()
+        }
+    }
+    $shell = New-Object -ComObject WScript.Shell
+    foreach ($lnk in @(Get-ChildItem -Path $StartupDir -Filter '*.lnk' -ErrorAction SilentlyContinue)) {
+        if ((Split-Path $shell.CreateShortcut($lnk.FullName).TargetPath -Leaf) -eq 'portfind-tray.exe') {
+            Remove-Item -Force -Path $lnk.FullName
+            $removed += "startup shortcut $($lnk.Name)"
+        }
+    }
+    return $removed
+}
+
 function Uninstall-Portfind {
     $ErrorActionPreference = 'Stop'
 
@@ -76,6 +105,10 @@ function Uninstall-Portfind {
     $removed = @(Remove-PortfindShortcuts)
     if ($removed.Count -gt 0) {
         Write-Host "Removed Start menu shortcuts: $($removed -join ', ')"
+    }
+    $removed = @(Remove-PortfindAutostart)
+    if ($removed.Count -gt 0) {
+        Write-Host "Turned off: $($removed -join ', ')"
     }
 
     if ($env:PORTFIND_PURGE_HISTORY -eq '1') {

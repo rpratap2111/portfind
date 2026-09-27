@@ -130,29 +130,28 @@ Before killing, portfind holds the process open (so Windows can't reuse its PID)
 
 ### Tray icon
 
-Run `portfind-tray` for an icon in the notification area. On Windows 11 it may start in the `^` overflow; drag it onto the taskbar to keep it visible. Click the icon and portfind rescans, then lists the ports you're most likely to want back, dev servers first:
+Press `Win`, search **portfind** and open it (or run `portfind-tray`). An icon appears in the notification area. On Windows 11 it may start in the `^` overflow; drag it onto the taskbar to keep it visible. Click the icon and portfind rescans, then lists the ports you're most likely to want back, dev servers first. Each port opens a submenu with its details and a separate **Kill** item, so a stray click on a port never kills anything:
 
 ```
-portfind · 39 listening ports
-────────────────────────────────────────────
-python — :8899 (git-only-repo)        LOW
-redis-server — :6399 (fixtures)       HIGH
-mystery-daemon — :9300 (fixtures)     MEDIUM
-…
-18 system or elevated ports not shown
-…and 9 more (Open Terminal UI to see all)
-────────────────────────────────────────────
+portfind · 40 listening ports
+──────────────────────────────────────────────
+python — :8899 (git-only-repo)        LOW    ▸ ┌──────────────────────────────────┐
+mystery-daemon — :9300 (fixtures)     MEDIUM ▸ │ PID 12528 · running 4s · LOW risk │
+…                                              │ Project: git-only-repo            │
+20 system or elevated ports not shown          │ "…\python.exe" -m http.server 8899│
+…and 8 more (Open Terminal UI to see all)      │ Kill python                       │
+──────────────────────────────────────────────  └──────────────────────────────────┘
 Open Terminal UI
+✓ Start with Windows
 Quit
 ```
 
-- **LOW:** clicking kills straight away, and a notification confirms it.
-- **MEDIUM / HIGH:** a confirmation dialog shows the project, PID, uptime and command first. **No** is the default button.
+- **Kill** on a LOW process kills it straight away, and a notification confirms it.
+- **Kill…** on a MEDIUM or HIGH process asks first, in a dialog showing the project, PID, uptime and command. **No** is the default button.
 - Ports that can never be killed (core Windows processes) or that Windows won't let you touch without admin rights aren't listed. The menu says how many were left out.
 - If a port-fight is in progress, a `⚡` line says so.
 - **Open Terminal UI** opens `portfind` in a new terminal window.
-
-To start the tray icon when you log in, press `Win+R`, run `shell:startup`, and put a shortcut to `%LOCALAPPDATA%\portfind\bin\portfind-tray.exe` in that folder.
+- **Start with Windows** starts the tray icon when you sign in. Click it again to turn it off, or use Task Manager's Startup apps. It needs no admin rights, and the uninstaller turns it off.
 
 ### Port fights and history
 

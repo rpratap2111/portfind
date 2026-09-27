@@ -16,13 +16,20 @@ package main
 import (
 	"errors"
 	"os"
+	"slices"
 
 	"github.com/rpratap2111/portfind/internal/tray"
 )
 
 func main() {
+	// Windows passes this when starting the tray at sign-in (see the Start
+	// with Windows menu option).
+	autostart := slices.Contains(os.Args[1:], tray.AutostartFlag)
+
 	err := tray.Run()
 	switch {
+	case errors.Is(err, tray.ErrAlreadyRunning) && autostart:
+		// Already started some other way; nothing to tell the user.
 	case errors.Is(err, tray.ErrAlreadyRunning):
 		tray.ShowInfo("portfind is already running. Look for its icon in the notification area (you may need to click ^ to see hidden icons).")
 	case err != nil:

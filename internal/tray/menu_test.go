@@ -78,6 +78,27 @@ func TestMenuLabel(t *testing.T) {
 	}
 }
 
+func TestPortDetailsAndKillLabel(t *testing.T) {
+	low := pe(3000, 42, "node", "LOW", "node server.js")
+	low.ProjectName = "R&D"
+	pid, project, command := portDetails(low)
+	if pid != "PID 42 · running 1m · LOW risk" || project != "Project: R&&D" || command != "node server.js" {
+		t.Errorf("portDetails(low) = %q, %q, %q", pid, project, command)
+	}
+	if got := killLabel(low); got != "Kill node" {
+		t.Errorf("killLabel(LOW) = %q, want no ellipsis (kills without a dialog)", got)
+	}
+
+	high := pe(5432, 7, "postgres", "HIGH", strings.Repeat("y", 100))
+	_, project, command = portDetails(high)
+	if project != "No project detected" || len([]rune(command)) != 70 {
+		t.Errorf("portDetails(high) project=%q command len=%d, want placeholder and 70", project, len([]rune(command)))
+	}
+	if got := killLabel(high); got != "Kill postgres…" {
+		t.Errorf("killLabel(HIGH) = %q, want an ellipsis (a dialog follows)", got)
+	}
+}
+
 func TestConfirmText(t *testing.T) {
 	high := pe(5432, 8804, "postgres", "HIGH", `"C:\pg\postgres.exe" -D data`)
 	got := confirmText(high)

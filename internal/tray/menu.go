@@ -87,9 +87,25 @@ func escapeMenuText(s string) string {
 	return strings.ReplaceAll(s, "&", "&&")
 }
 
-// menuTooltip is the per-item hover text.
-func menuTooltip(e inspector.PortEntry) string {
-	return fmt.Sprintf("PID %d · up %s · %s risk\n%s", e.PID, inspector.FormatAge(e.AgeSeconds), e.RiskTier, e.Command)
+// portDetails are the read-only lines shown in a port's submenu above its
+// Kill item, so the user sees what they are about to kill before they can.
+func portDetails(e inspector.PortEntry) (pidLine, projectLine, commandLine string) {
+	pidLine = fmt.Sprintf("PID %d · running %s · %s risk", e.PID, inspector.FormatAge(e.AgeSeconds), e.RiskTier)
+	projectLine = "No project detected"
+	if e.ProjectName != "" {
+		projectLine = "Project: " + e.ProjectName
+	}
+	return escapeMenuText(pidLine), escapeMenuText(projectLine), escapeMenuText(truncate(e.Command, 70))
+}
+
+// killLabel is the submenu action. MEDIUM and HIGH end in "…", the Windows
+// convention for "a confirmation follows".
+func killLabel(e inspector.PortEntry) string {
+	label := "Kill " + e.Process
+	if e.RiskTier != risk.Low {
+		label += "…"
+	}
+	return escapeMenuText(label)
 }
 
 // confirmText is the body of the native confirmation dialog shown before

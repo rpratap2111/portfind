@@ -19,10 +19,15 @@ import (
 
 // slot is one pre-created port menu item. systray can't remove items, so the
 // menu has maxPortItems slots that are retitled and shown or hidden.
+//
+// Each port is a submenu: clicking the port itself does nothing, and killing
+// takes a second, deliberate click on the Kill item beneath its details.
 type slot struct {
-	item  *systray.MenuItem
-	entry inspector.PortEntry // what the item currently shows
-	used  bool
+	item                  *systray.MenuItem // "node — :3000 (my-app)   LOW ▸"
+	pid, project, command *systray.MenuItem // read-only details
+	killItem              *systray.MenuItem // "Kill node" / "Kill postgres…"
+	entry                 inspector.PortEntry
+	used                  bool
 }
 
 type app struct {
@@ -34,6 +39,7 @@ type app struct {
 	slots []*slot
 
 	header, fight, empty, hidden, overflow *systray.MenuItem
+	startup                                *systray.MenuItem // "Start with Windows" checkbox
 }
 
 // Run shows the tray icon and blocks until the user quits. It returns
@@ -65,7 +71,16 @@ func (a *app) onReady(histErr error) {
 	a.fight = hiddenItem()
 	systray.AddSeparator()
 	for i := 0; i < maxPortItems; i++ {
+		// Sub-items must be added while the parent is visible (systray
+		// converts it to a submenu then); hiding keeps the submenu attached.
 		s := &slot{item: systray.AddMenuItem("", "")}
+		s.pid = s.item.AddSubMenuItem("", "")
+		s.project = s.item.AddSubMenuItem("", "")
+		s.command = s.item.AddSubMenuItem("", "")
+		for _, info := range []*systray.MenuItem{s.pid, s.project, s.command} {
+			info.Disable()
+		}
+		s.killItem = s.item.AddSubMenuItem("", "")
 		s.item.Hide()
 		a.slots = append(a.slots, s)
 		go a.watchSlot(s)
@@ -75,12 +90,14 @@ func (a *app) onReady(histErr error) {
 	a.overflow = hiddenItem()
 	systray.AddSeparator()
 	openTUI := systray.AddMenuItem("Open Terminal UI", "Open portfind in a new terminal window")
+	a.startup = systray.AddMenuItemCheckbox("Start with Windows", "Start the portfind tray icon when you sign in", false)
 	quit := systray.AddMenuItem("Quit", "Close the portfind tray icon")
 	go a.watch(openTUI, func() {
 		if err := launchTUI(); err != nil {
 			a.notify("Couldn't open the terminal UI", err.Error(), notifyError)
 		}
 	})
+	go a.watch(a.startup, a.toggleStartup)
 	go a.watch(quit, systray.Quit)
 
 	hwnd, err := findTrayWindow()
@@ -116,7 +133,7 @@ func (a *app) watch(item *systray.MenuItem, fn func()) {
 }
 
 func (a *app) watchSlot(s *slot) {
-	for range s.item.ClickedCh {
+	for range s.killItem.ClickedCh {
 		a.mu.Lock()
 		e, ok := s.entry, s.used
 		a.mu.Unlock()
@@ -157,8 +174,12 @@ func (a *app) refresh() {
 			continue
 		}
 		s.entry, s.used = shown[i], true
+		pid, project, command := portDetails(shown[i])
 		s.item.SetTitle(menuLabel(shown[i]))
-		s.item.SetTooltip(menuTooltip(shown[i]))
+		s.pid.SetTitle(pid)
+		s.project.SetTitle(project)
+		s.command.SetTitle(command)
+		s.killItem.SetTitle(killLabel(shown[i]))
 		s.item.Show()
 	}
 
@@ -176,6 +197,42 @@ func (a *app) refresh() {
 		}
 	}
 	setInfo(a.fight, label != "", escapeMenuText(label))
+	a.syncStartupCheck()
+}
+
+// syncStartupCheck makes the checkbox match the registry, which the user can
+// also change from Task Manager or the uninstaller.
+func (a *app) syncStartupCheck() {
+	on, err := autostartEnabled()
+	if err != nil {
+		a.startup.SetTitle(escapeMenuText("Start with Windows (unavailable: " + err.Error() + ")"))
+		a.startup.Disable()
+		return
+	}
+	if on {
+		a.startup.Check()
+	} else {
+		a.startup.Uncheck()
+	}
+}
+
+func (a *app) toggleStartup() {
+	a.mu.Lock()
+	want := !a.startup.Checked()
+	a.mu.Unlock()
+
+	if err := setAutostart(want); err != nil {
+		a.notify("Couldn't change Start with Windows", err.Error(), notifyError)
+		return
+	}
+	a.mu.Lock()
+	a.syncStartupCheck()
+	a.mu.Unlock()
+	if want {
+		a.notify("portfind will start with Windows", "The tray icon will appear when you sign in.", notifyInfo)
+	} else {
+		a.notify("portfind won't start with Windows", "Start it from the Start menu when you need it.", notifyInfo)
+	}
 }
 
 // kill runs the risk-tiered kill flow for an entry picked from the menu:
