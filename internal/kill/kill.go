@@ -30,13 +30,15 @@ var criticalProcesses = []string{
 // t.Process and still listens on t.Port, so a PID recycled since the scan is
 // never hit. It returns nil only once the process has actually exited.
 func Terminate(ins inspector.PortInspector, t Target) error {
-	if err := checkAllowed(t); err != nil {
+	if err := CheckAllowed(t); err != nil {
 		return err
 	}
 	return terminate(ins, t)
 }
 
-func checkAllowed(t Target) error {
+// CheckAllowed reports why t may never be killed, or nil if it may be.
+// Front-ends use it to avoid offering processes that would be refused.
+func CheckAllowed(t Target) error {
 	if t.PID <= 4 {
 		return fmt.Errorf("refusing to kill PID %d: it is a kernel pseudo-process", t.PID)
 	}

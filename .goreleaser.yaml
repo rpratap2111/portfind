@@ -5,6 +5,24 @@ version: 2
 
 project_name: portfind
 
+before:
+  hooks:
+    # Windows resources (icon, manifest, version info shown in Task Manager and
+    # file Properties), stamped with this release's version. The .syso files
+    # are gitignored; `go generate ./cmd/...` makes dev copies with the icon.
+    - >-
+      go run github.com/tc-hib/go-winres@v0.3.3 simply --arch amd64,arm64 --manifest cli
+      --out cmd/portfind/rsrc --icon assets/portfind.ico
+      --product-name portfind --file-description "portfind terminal UI"
+      --original-filename portfind.exe --copyright "MIT License"
+      --file-version {{ .Major }}.{{ .Minor }}.{{ .Patch }} --product-version {{ .Major }}.{{ .Minor }}.{{ .Patch }}
+    - >-
+      go run github.com/tc-hib/go-winres@v0.3.3 simply --arch amd64,arm64 --manifest gui
+      --out cmd/portfind-tray/rsrc --icon assets/portfind.ico
+      --product-name portfind --file-description "portfind tray"
+      --original-filename portfind-tray.exe --copyright "MIT License"
+      --file-version {{ .Major }}.{{ .Minor }}.{{ .Patch }} --product-version {{ .Major }}.{{ .Minor }}.{{ .Patch }}
+
 builds:
   - id: portfind
     main: ./cmd/portfind
@@ -16,6 +34,17 @@ builds:
     flags: [-trimpath]
     ldflags:
       - -s -w -X main.version={{ .Version }}
+
+  - id: portfind-tray
+    main: ./cmd/portfind-tray
+    binary: portfind-tray
+    env:
+      - CGO_ENABLED=0
+    goos: [windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -H=windowsgui # GUI subsystem: no console window behind the tray icon
 
 archives:
   - formats: [zip]
@@ -43,5 +72,5 @@ release:
     irm https://raw.githubusercontent.com/rpratap2111/portfind/main/install.ps1 | iex
     ```
 
-    Or download the zip for your CPU below (`amd64` for most PCs, `arm64` for Windows on ARM) and run `portfind.exe`.
+    Or download the zip for your CPU below (`amd64` for most PCs, `arm64` for Windows on ARM) and run `portfind.exe` (terminal UI) or `portfind-tray.exe` (notification-area icon). Keep them in the same folder.
     The binaries are not code-signed, so Windows SmartScreen may warn on first run: click **More info → Run anyway**.

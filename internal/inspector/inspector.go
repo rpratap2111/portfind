@@ -6,7 +6,10 @@
 // on any platform.
 package inspector
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // PortEntry describes one process listening on one port. It is the shared data
 // model used by the CLI, TUI and tray front-ends.
@@ -54,4 +57,21 @@ func DisplayName(exe string) string {
 		exe = exe[:len(exe)-4]
 	}
 	return exe
+}
+
+// FormatAge renders an AgeSeconds value compactly, e.g. "45s", "12m",
+// "2h15m", "3d4h". Negative values mean unknown and render as "?".
+func FormatAge(sec int64) string {
+	switch {
+	case sec < 0:
+		return "?"
+	case sec < 60:
+		return fmt.Sprintf("%ds", sec)
+	case sec < 3600:
+		return fmt.Sprintf("%dm", sec/60)
+	case sec < 86400:
+		return fmt.Sprintf("%dh%dm", sec/3600, sec%3600/60)
+	default:
+		return fmt.Sprintf("%dd%dh", sec/86400, sec%86400/3600)
+	}
 }

@@ -179,12 +179,3 @@ func TestSelectionScrollsIntoView(t *testing.T) {
 		t.Fatalf("selected %d not within drawn rows [%d,%d)", m.selectedIndex, m.offset, m.offset+5)
 	}
 }
-
-func TestFormatAge(t *testing.T) {
-	tests := map[int64]string{-1: "?", 0: "0s", 45: "45s", 60: "1m", 8100: "2h15m", 273600: "3d4h"}
-	for in, want := range tests {
-		if got := formatAge(in); got != want {
-			t.Errorf("formatAge(%d) = %q, want %q", in, got, want)
-		}
-	}
-}

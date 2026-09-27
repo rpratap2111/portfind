@@ -18,9 +18,9 @@ func TestCheckAllowed(t *testing.T) {
 		{"unknown name", Target{PID: 999, Port: 80, Process: ""}, false},
 	}
 	for _, tt := range tests {
-		err := checkAllowed(tt.target)
+		err := CheckAllowed(tt.target)
 		if (err == nil) != tt.allowed {
-			t.Errorf("%s: checkAllowed(%+v) = %v, want allowed=%v", tt.name, tt.target, err, tt.allowed)
+			t.Errorf("%s: CheckAllowed(%+v) = %v, want allowed=%v", tt.name, tt.target, err, tt.allowed)
 		}
 	}
 }

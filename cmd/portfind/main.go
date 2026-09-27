@@ -2,6 +2,10 @@
 // processes that are listening on network ports.
 package main
 
+// Windows resources (icon, manifest) for local builds of portfind.exe; the
+// release build regenerates them with version info (see .goreleaser.yaml).
+//go:generate go run github.com/tc-hib/go-winres@v0.3.3 simply --arch amd64,arm64 --manifest cli --icon ../../assets/portfind.ico --product-name portfind --file-description "portfind terminal UI" --original-filename portfind.exe --copyright "MIT License"
+
 import (
 	"flag"
 	"fmt"

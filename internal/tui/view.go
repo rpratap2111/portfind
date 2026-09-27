@@ -275,7 +275,7 @@ func renderEntry(e inspector.PortEntry, cols columns, rowW int, selected bool) s
 		cell(st, strconv.Itoa(e.PID), cols.pid),
 		cell(st.Foreground(colProject), orDash(e.ProjectName), cols.project),
 		cell(st, e.Process, cols.process),
-		cell(st, formatAge(e.AgeSeconds), cols.age),
+		cell(st, inspector.FormatAge(e.AgeSeconds), cols.age),
 		cell(st.Foreground(riskColor(e.RiskTier)), e.RiskTier, cols.risk),
 		cell(st, sanitize(e.Command), cols.command),
 	}
@@ -449,23 +449,6 @@ func riskColor(tier string) lipgloss.Color {
 	}
 }
 
-// formatAge renders seconds compactly, e.g. "45s", "12m", "2h15m", "3d4h".
-// Negative values mean unknown.
-func formatAge(sec int64) string {
-	switch {
-	case sec < 0:
-		return "?"
-	case sec < 60:
-		return fmt.Sprintf("%ds", sec)
-	case sec < 3600:
-		return fmt.Sprintf("%dm", sec/60)
-	case sec < 86400:
-		return fmt.Sprintf("%dh%dm", sec/3600, sec%3600/60)
-	default:
-		return fmt.Sprintf("%dd%dh", sec/86400, sec%86400/3600)
-	}
-}
-
 // sanitize flattens control characters so a hostile or odd command line
 // can't break the layout or inject escape sequences.
 func sanitize(s string) string {
@@ -508,7 +491,7 @@ func (m Model) viewKillDialog(width int) string {
 	}
 	sep := mutedStyle.Render(" · ")
 	details := mutedStyle.Render(fmt.Sprintf("PID %d", e.PID)) + sep + project + sep +
-		mutedStyle.Render("up "+formatAge(e.AgeSeconds)) + sep +
+		mutedStyle.Render("up "+inspector.FormatAge(e.AgeSeconds)) + sep +
 		base.Foreground(rc).Bold(true).Render(e.RiskTier)
 
 	lines := []string{

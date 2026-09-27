@@ -3,13 +3,15 @@
 #   irm https://raw.githubusercontent.com/rpratap2111/portfind/main/install.ps1 | iex
 #
 # It downloads the release zip for your CPU, verifies its SHA-256 against the
-# release's checksums.txt, copies the executables to the install directory and
-# adds that directory to your user PATH.
+# release's checksums.txt, copies the executables to the install directory,
+# adds that directory to your user PATH and creates Start menu shortcuts, so
+# searching "portfind" in Windows finds the tray app and the terminal UI.
 #
 # Options (set before running the command above):
 #   $env:PORTFIND_VERSION         = "v0.1.0"            # default: latest release
 #   $env:PORTFIND_INSTALL_DIR     = "D:\tools\portfind" # default: %LOCALAPPDATA%\portfind\bin
 #   $env:PORTFIND_NO_MODIFY_PATH  = "1"                 # don't touch PATH
+#   $env:PORTFIND_NO_SHORTCUTS    = "1"                 # don't create Start menu shortcuts
 #   $env:PORTFIND_DOWNLOAD_BASE   = "https://..."       # mirror hosting the release files
 
 # Everything runs inside functions so that, under `irm | iex`, settings such as
@@ -89,6 +91,32 @@ function Add-PortfindToPath([string]$Dir, [string]$RegistryKey = 'Environment') 
     return $true
 }
 
+# Start menu shortcuts, by executable. uninstall.ps1 removes the same names.
+$PortfindShortcuts = @(
+    @{ Name = 'portfind'; Exe = 'portfind-tray.exe'; Description = 'Find and kill processes on ports (tray icon)' }
+    @{ Name = 'portfind (terminal)'; Exe = 'portfind.exe'; Description = 'Find and kill processes on ports (terminal UI)' }
+)
+
+# New-PortfindShortcuts creates a Start menu shortcut for each installed
+# executable and returns the names it created. Windows search picks these up
+# within a few seconds.
+function New-PortfindShortcuts([string]$InstallDir, [string]$ProgramsDir = [Environment]::GetFolderPath('Programs')) {
+    $shell = New-Object -ComObject WScript.Shell
+    $made = @()
+    foreach ($s in $PortfindShortcuts) {
+        $target = Join-Path $InstallDir $s.Exe
+        if (-not (Test-Path $target)) { continue }
+        $lnk = $shell.CreateShortcut((Join-Path $ProgramsDir "$($s.Name).lnk"))
+        $lnk.TargetPath = $target
+        $lnk.WorkingDirectory = $env:USERPROFILE
+        $lnk.IconLocation = "$target,0"
+        $lnk.Description = $s.Description
+        $lnk.Save()
+        $made += $s.Name
+    }
+    return $made
+}
+
 function Install-Portfind {
     $ErrorActionPreference = 'Stop'
     $ProgressPreference = 'SilentlyContinue' # the progress bar slows downloads badly in Windows PowerShell 5.1
@@ -140,6 +168,16 @@ function Install-Portfind {
             Write-Host "Added $installDir to your user PATH."
         }
     }
+    if ($env:PORTFIND_NO_SHORTCUTS -ne '1') {
+        try {
+            $made = @(New-PortfindShortcuts $installDir)
+            if ($made.Count -gt 0) { Write-Host "Added Start menu shortcuts: $($made -join ', ')" }
+        } catch {
+            # The programs are installed; only the shortcuts failed. Say so.
+            Write-Warning "Couldn't create Start menu shortcuts: $($_.Exception.Message)"
+        }
+    }
+
     # Make `portfind` work in this window right away, too.
     if (-not (($env:Path -split ';') | Where-Object { $_.TrimEnd('\') -ieq $installDir.TrimEnd('\') })) {
         $env:Path = "$env:Path;$installDir"
@@ -149,6 +187,9 @@ function Install-Portfind {
     Write-Host ""
     Write-Host "Installed $installed to $installDir" -ForegroundColor Green
     Write-Host "Run it with:  portfind"
+    if (Test-Path (Join-Path $installDir 'portfind-tray.exe')) {
+        Write-Host "Tray icon:    portfind-tray   (or press Win and search 'portfind')"
+    }
     Write-Host "(In other terminal windows that were already open, restart them first.)"
 }
 

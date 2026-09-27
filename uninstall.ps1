@@ -2,8 +2,9 @@
 #
 #   irm https://raw.githubusercontent.com/rpratap2111/portfind/main/uninstall.ps1 | iex
 #
-# Removes the executables and the PATH entry added by install.ps1. Your kill
-# history (%LOCALAPPDATA%\portfind\history.db) is kept unless you set:
+# Removes the executables, the PATH entry and the Start menu shortcuts added by
+# install.ps1. Your kill history (%LOCALAPPDATA%\portfind\history.db) is kept
+# unless you set:
 #   $env:PORTFIND_PURGE_HISTORY = "1"
 # If you installed to a custom directory, set $env:PORTFIND_INSTALL_DIR to it.
 
@@ -27,6 +28,22 @@ function Remove-PortfindFromPath([string]$Dir, [string]$RegistryKey = 'Environme
         [Environment]::SetEnvironmentVariable('PORTFIND_INSTALLER', $null, 'User')
     }
     return $true
+}
+
+# Remove-PortfindShortcuts deletes the Start menu shortcuts install.ps1 made,
+# only if they still point at a portfind executable.
+function Remove-PortfindShortcuts([string]$ProgramsDir = [Environment]::GetFolderPath('Programs')) {
+    $shell = New-Object -ComObject WScript.Shell
+    $removed = @()
+    foreach ($name in 'portfind', 'portfind (terminal)') {
+        $path = Join-Path $ProgramsDir "$name.lnk"
+        if (-not (Test-Path $path)) { continue }
+        $target = $shell.CreateShortcut($path).TargetPath
+        if ((Split-Path $target -Leaf) -notin 'portfind.exe', 'portfind-tray.exe') { continue }
+        Remove-Item -Force -Path $path
+        $removed += $name
+    }
+    return $removed
 }
 
 function Uninstall-Portfind {
@@ -55,6 +72,10 @@ function Uninstall-Portfind {
     }
     if (Remove-PortfindFromPath $installDir) {
         Write-Host "Removed $installDir from your user PATH."
+    }
+    $removed = @(Remove-PortfindShortcuts)
+    if ($removed.Count -gt 0) {
+        Write-Host "Removed Start menu shortcuts: $($removed -join ', ')"
     }
 
     if ($env:PORTFIND_PURGE_HISTORY -eq '1') {

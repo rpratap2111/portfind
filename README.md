@@ -2,6 +2,8 @@
 
 **Know what you're killing.** portfind finds the process holding a network port on Windows and lets you kill it, and before you do, it shows you *which project* that process belongs to, how long it has been running, and how risky killing it is.
 
+It comes as a terminal UI (`portfind`) and a notification-area icon (`portfind-tray`) that share the same engine.
+
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Search: 30█                          ⚡ :3000 killed 3× in 15m (node · my-app): something keeps… │
@@ -36,7 +38,7 @@ Then run:
 portfind
 ```
 
-The installer downloads the latest release for your CPU, **verifies its SHA-256 checksum**, puts `portfind.exe` in `%LOCALAPPDATA%\portfind\bin` and adds that folder to your user PATH. Terminal windows that were already open need a restart before they see `portfind`; the window you installed from works immediately.
+The installer downloads the latest release for your CPU, **verifies its SHA-256 checksum**, puts `portfind.exe` and `portfind-tray.exe` in `%LOCALAPPDATA%\portfind\bin` and adds that folder to your user PATH. Terminal windows that were already open need a restart before they see `portfind`; the window you installed from works immediately.
 
 <details>
 <summary>Installer options</summary>
@@ -54,7 +56,7 @@ $env:PORTFIND_NO_MODIFY_PATH = "1"              # don't touch PATH
 ### Manual download
 
 1. Open the [latest release](https://github.com/rpratap2111/portfind/releases/latest) and download `portfind_windows_amd64.zip` (or `portfind_windows_arm64.zip` on Windows on ARM).
-2. Extract it anywhere and run `portfind.exe`, either by double-clicking it or from a terminal.
+2. Extract it anywhere. Run `portfind.exe` for the terminal UI or `portfind-tray.exe` for the tray icon, and keep the two files in the same folder.
 3. Optional: add that folder to your PATH so you can type `portfind` from any terminal.
 
 > **Windows SmartScreen:** the binaries aren't code-signed, so the first time you run a *browser-downloaded* `portfind.exe` Windows may show "Windows protected your PC". Click **More info → Run anyway**. The one-command installer downloads with PowerShell, which normally avoids this prompt.
@@ -69,7 +71,7 @@ go install github.com/rpratap2111/portfind/cmd/portfind@latest
 
 ### Uninstall
 
-Close portfind first, then:
+Close portfind first, including the tray icon (click it → **Quit**), then:
 
 ```powershell
 irm https://raw.githubusercontent.com/rpratap2111/portfind/main/uninstall.ps1 | iex
@@ -126,9 +128,35 @@ Every key you can type goes into the search box, so all commands live on non-typ
 
 Before killing, portfind holds the process open (so Windows can't reuse its PID), checks that it's still the same executable and still listening on that port, and only then terminates it and waits for it to exit. Core Windows processes such as `lsass`, `csrss`, `wininit`, `services` and `svchost` are always refused, since killing them crashes or reboots Windows.
 
+### Tray icon
+
+Run `portfind-tray` for an icon in the notification area. On Windows 11 it may start in the `^` overflow; drag it onto the taskbar to keep it visible. Click the icon and portfind rescans, then lists the ports you're most likely to want back, dev servers first:
+
+```
+portfind · 39 listening ports
+────────────────────────────────────────────
+python — :8899 (git-only-repo)        LOW
+redis-server — :6399 (fixtures)       HIGH
+mystery-daemon — :9300 (fixtures)     MEDIUM
+…
+18 system or elevated ports not shown
+…and 9 more (Open Terminal UI to see all)
+────────────────────────────────────────────
+Open Terminal UI
+Quit
+```
+
+- **LOW:** clicking kills straight away, and a notification confirms it.
+- **MEDIUM / HIGH:** a confirmation dialog shows the project, PID, uptime and command first. **No** is the default button.
+- Ports that can never be killed (core Windows processes) or that Windows won't let you touch without admin rights aren't listed. The menu says how many were left out.
+- If a port-fight is in progress, a `⚡` line says so.
+- **Open Terminal UI** opens `portfind` in a new terminal window.
+
+To start the tray icon when you log in, press `Win+R`, run `shell:startup`, and put a shortcut to `%LOCALAPPDATA%\portfind\bin\portfind-tray.exe` in that folder.
+
 ### Port fights and history
 
-portfind logs every process that leaves a port, and whether portfind killed it. If you've killed the same port **3 times in 15 minutes**, a hint appears next to the search box: usually `nodemon`, a supervisor or an auto-restarting service is bringing it back, and killing it again won't help. Press `Tab` to browse the history.
+portfind logs every process that leaves a port, and whether portfind killed it. Kills made from the tray are logged too. If you've killed the same port **3 times in 15 minutes**, a hint appears next to the search box: usually `nodemon`, a supervisor or an auto-restarting service is bringing it back, and killing it again won't help. Press `Tab` to browse the history.
 
 History is stored in `%LOCALAPPDATA%\portfind\history.db` (SQLite).
 
@@ -146,6 +174,8 @@ git clone https://github.com/rpratap2111/portfind
 cd portfind
 go build ./cmd/portfind
 .\portfind.exe
+go build -ldflags -H=windowsgui ./cmd/portfind-tray  # GUI build: no console window
+.\portfind-tray.exe
 ```
 
 Pure Go, no cgo: the SQLite driver is `modernc.org/sqlite`, and Windows is queried directly through its APIs (`GetExtendedTcpTable`, `NtQueryInformationProcess`, …) rather than by parsing `netstat`.

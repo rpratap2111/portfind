@@ -66,9 +66,13 @@ type Store struct {
 	db *sql.DB
 }
 
-// DefaultPath is %LocalAppData%\portfind\history.db on Windows (the
-// equivalent user cache directory elsewhere).
+// DefaultPath is $PORTFIND_HISTORY_DB if set, otherwise
+// %LocalAppData%\portfind\history.db on Windows (the equivalent user cache
+// directory elsewhere).
 func DefaultPath() (string, error) {
+	if p := os.Getenv("PORTFIND_HISTORY_DB"); p != "" {
+		return p, nil
+	}
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		return "", fmt.Errorf("locate user data directory: %w", err)
