@@ -1,0 +1,6 @@
+# Always check out LF line endings, even on Windows with core.autocrlf=true.
+# gofmt requires LF, and CI's gofmt check runs on a Windows runner.
+* text=auto eol=lf
+
+*.ico binary
+*.png binary
