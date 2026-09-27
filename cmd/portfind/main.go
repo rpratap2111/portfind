@@ -1,5 +1,6 @@
 // Command portfind is an interactive terminal UI for finding and killing
-// processes that are listening on network ports.
+// processes that are listening on network ports. With --json it prints the
+// listening ports as JSON instead, for scripts.
 package main
 
 // Windows resources (icon, manifest) for local builds of portfind.exe; the
@@ -17,6 +18,7 @@ import (
 
 	"github.com/rpratap2111/portfind/internal/history"
 	"github.com/rpratap2111/portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/scan"
 	"github.com/rpratap2111/portfind/internal/tui"
 )
 
@@ -25,9 +27,17 @@ var version = "dev"
 
 func main() {
 	showVersion := flag.Bool("version", false, "print the version and exit")
+	asJSON := flag.Bool("json", false, "print listening ports as JSON and exit (no UI, no history)")
 	flag.Parse()
 	if *showVersion {
 		fmt.Println("portfind", buildVersion())
+		return
+	}
+	if *asJSON {
+		if err := runJSON(); err != nil {
+			fmt.Fprintln(os.Stderr, "portfind:", err)
+			os.Exit(1)
+		}
 		return
 	}
 
@@ -60,6 +70,19 @@ func run() error {
 	m := tui.New(inspector.New(), store, histErr)
 	_, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
 	return err
+}
+
+// runJSON prints one scan as JSON. A scan failure exits non-zero with the
+// error on stderr; per-process problems go in the report's "warnings".
+func runJSON() error {
+	res, err := scan.Run(inspector.New())
+	if err != nil {
+		return err
+	}
+	if err := writeJSON(os.Stdout, res); err != nil {
+		return fmt.Errorf("write JSON: %w", err)
+	}
+	return nil
 }
 
 func openHistory() (*history.Store, error) {

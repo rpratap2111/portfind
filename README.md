@@ -89,7 +89,7 @@ Installed another way?
 
 ## Why portfind?
 
-Most port killers answer one question: *which PID is on port 3000?* That's rarely enough. `node` on :3000 could be the app you forgot to stop, or a teammate's service you're about to take down. portfind adds the context you need to decide:
+Port killers such as [pik](https://github.com/jacek-kurlit/pik), pview, PortSlayer and portndock are built around one question: *which process is on port 3000?* They show you OS-level facts (PID, process name) and let you kill it. That's rarely enough on its own. `node` on :3000 could be the app you forgot to stop, or a teammate's service you're about to take down. portfind is built around a different question, **"what exactly am I about to kill?"**, and adds the context you need to answer it:
 
 | | typical port killer | portfind |
 |---|---|---|
@@ -117,6 +117,49 @@ Run `portfind`. It opens on every listening TCP port, refreshes every 2 seconds 
 | `Ctrl+C` | Quit |
 
 Every key you can type goes into the search box, so all commands live on non-typing keys.
+
+### Scripting with `--json`
+
+`portfind --json` prints every listening port as JSON and exits, with no UI and no history. Every field is always present, and anything portfind couldn't determine is `null`:
+
+```json
+{
+  "ports": [
+    {
+      "port": 8899,
+      "pid": 17012,
+      "process": "python",
+      "project": "git-only-repo",
+      "age_seconds": 2,
+      "risk": "LOW",
+      "command": "\"C:\\...\\python.exe\" -m http.server 8899",
+      "parent_pid": 5920,
+      "parent_process": "pwsh"
+    }
+  ],
+  "warnings": ["port 135 pid 1984 (svchost): OpenProcess: Access is denied."]
+}
+```
+
+`warnings` lists processes Windows wouldn't let portfind fully inspect; their entries still appear, with `null`s. If the scan itself fails, portfind exits with code 1 and prints the error to stderr.
+
+PowerShell:
+
+```powershell
+# What's on port 3000?
+(portfind --json | ConvertFrom-Json).ports | Where-Object port -eq 3000
+
+# Every port held by one of your projects
+(portfind --json | ConvertFrom-Json).ports | Where-Object project | Format-Table port, process, project
+```
+
+jq:
+
+```sh
+portfind --json | jq '.ports[] | select(.risk == "LOW") | {port, process, project}'
+```
+
+`portfind --version` prints the version.
 
 ### Risk tiers
 
