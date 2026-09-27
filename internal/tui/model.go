@@ -8,11 +8,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"portfind/internal/history"
-	"portfind/internal/inspector"
-	"portfind/internal/kill"
-	"portfind/internal/risk"
-	"portfind/internal/scan"
+	"github.com/rpratap2111/portfind/internal/history"
+	"github.com/rpratap2111/portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/kill"
+	"github.com/rpratap2111/portfind/internal/risk"
+	"github.com/rpratap2111/portfind/internal/scan"
 )
 
 const refreshInterval = 2 * time.Second

@@ -8,7 +8,7 @@ package risk
 import (
 	"strings"
 
-	"portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/inspector"
 )
 
 // Tiers, from least to most confirmation required.

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/inspector"
 )
 
 // Target is the process the user confirmed killing, as it appeared in a scan.

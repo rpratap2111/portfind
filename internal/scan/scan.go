@@ -3,9 +3,9 @@
 package scan
 
 import (
-	"portfind/internal/inspector"
-	"portfind/internal/provenance"
-	"portfind/internal/risk"
+	"github.com/rpratap2111/portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/provenance"
+	"github.com/rpratap2111/portfind/internal/risk"
 )
 
 // Result is one fully annotated scan.

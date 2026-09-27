@@ -1,0 +1,7 @@
+# Build output
+/dist/
+*.exe
+
+# Test and coverage artifacts
+*.test
+*.out

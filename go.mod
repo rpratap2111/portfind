@@ -1,4 +1,4 @@
-module portfind
+module github.com/rpratap2111/portfind
 
 go 1.26.3
 

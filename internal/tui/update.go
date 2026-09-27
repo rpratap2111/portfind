@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"portfind/internal/kill"
+	"github.com/rpratap2111/portfind/internal/kill"
 )
 
 // Update handles input, the refresh tick, scan results and kill results.

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/inspector"
 )
 
 // Where the directory used for the project walk came from.

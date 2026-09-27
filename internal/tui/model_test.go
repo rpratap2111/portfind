@@ -7,8 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"portfind/internal/inspector"
-	"portfind/internal/scan"
+	"github.com/rpratap2111/portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/scan"
 )
 
 func entry(port, pid int, process, project string) inspector.PortEntry {

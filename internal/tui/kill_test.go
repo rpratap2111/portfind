@@ -7,8 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"portfind/internal/inspector"
-	"portfind/internal/kill"
+	"github.com/rpratap2111/portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/kill"
 )
 
 // withFakeKill makes m record kill calls instead of killing anything.

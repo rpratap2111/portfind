@@ -3,17 +3,28 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"portfind/internal/history"
-	"portfind/internal/inspector"
-	"portfind/internal/tui"
+	"github.com/rpratap2111/portfind/internal/history"
+	"github.com/rpratap2111/portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/tui"
 )
 
+// version is set at release time via -ldflags "-X main.version=...".
+var version = "dev"
+
 func main() {
+	showVersion := flag.Bool("version", false, "print the version and exit")
+	flag.Parse()
+	if *showVersion {
+		fmt.Println("portfind", version)
+		return
+	}
+
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "portfind:", err)
 		os.Exit(1)

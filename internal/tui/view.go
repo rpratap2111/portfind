@@ -9,9 +9,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	"portfind/internal/history"
-	"portfind/internal/inspector"
-	"portfind/internal/risk"
+	"github.com/rpratap2111/portfind/internal/history"
+	"github.com/rpratap2111/portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/risk"
 )
 
 // Tokyo Night palette.

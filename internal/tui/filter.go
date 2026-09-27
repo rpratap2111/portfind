@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/inspector"
 )
 
 // filterEntries returns the entries matching query, preserving order. The

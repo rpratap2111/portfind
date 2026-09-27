@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/inspector"
 )
 
 func terminate(ins inspector.PortInspector, t Target) error {

@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/inspector"
 )
 
 const exitWaitMillis = 5000

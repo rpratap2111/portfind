@@ -9,9 +9,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"portfind/internal/history"
-	"portfind/internal/inspector"
-	"portfind/internal/scan"
+	"github.com/rpratap2111/portfind/internal/history"
+	"github.com/rpratap2111/portfind/internal/inspector"
+	"github.com/rpratap2111/portfind/internal/scan"
 )
 
 func tempStore(t *testing.T) *history.Store {

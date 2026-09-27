@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# Release build: push a tag like v0.1.0 and .github/workflows/release.yml runs
+# this. Local dry run: go run github.com/goreleaser/goreleaser/v2@latest release --snapshot --clean
+version: 2
+
+project_name: portfind
+
+builds:
+  - id: portfind
+    main: ./cmd/portfind
+    binary: portfind
+    env:
+      - CGO_ENABLED=0 # pure Go (modernc SQLite), so cross-compiling just works
+    goos: [windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - formats: [zip]
+    # No version in the name, so this URL always serves the newest release:
+    # https://github.com/rpratap2111/portfind/releases/latest/download/portfind_windows_amd64.zip
+    # install.ps1 depends on these names.
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt # install.ps1 verifies downloads against this
+
+changelog:
+  sort: asc
+  filters:
+    exclude: ["^docs:", "^test:", "^chore:"]
+
+release:
+  footer: |
+    ## Install
+
+    ```powershell
+    irm https://raw.githubusercontent.com/rpratap2111/portfind/main/install.ps1 | iex
+    ```
+
+    Or download the zip for your CPU below (`amd64` for most PCs, `arm64` for Windows on ARM) and run `portfind.exe`.
+    The binaries are not code-signed, so Windows SmartScreen may warn on first run: click **More info → Run anyway**.
