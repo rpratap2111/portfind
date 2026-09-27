@@ -69,11 +69,21 @@ go install github.com/rpratap2111/portfind/cmd/portfind@latest
 
 ### Uninstall
 
+Close portfind first, then:
+
 ```powershell
 irm https://raw.githubusercontent.com/rpratap2111/portfind/main/uninstall.ps1 | iex
 ```
 
-This removes the executables and the PATH entry. Your kill history is kept; set `$env:PORTFIND_PURGE_HISTORY = "1"` first to delete it too.
+This removes the executables and the PATH entry. Your kill history is kept. To delete it too, run this first in the same window:
+
+```powershell
+$env:PORTFIND_PURGE_HISTORY = "1"
+```
+
+Installed another way?
+- **`go install`:** delete `%USERPROFILE%\go\bin\portfind.exe`.
+- **Manual download:** delete the folder you extracted, and remove it from your PATH if you added it.
 
 ## Why portfind?
 
