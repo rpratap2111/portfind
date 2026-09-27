@@ -15,18 +15,30 @@
 # Everything runs inside functions so that, under `irm | iex`, settings such as
 # $ErrorActionPreference don't leak into the caller's session.
 
+# Select-PortfindArch maps the first recognizable architecture name to a
+# release suffix. Sources can be missing or empty depending on the .NET and
+# PowerShell version (RuntimeInformation.OSArchitecture returns nothing on some
+# Windows PowerShell 5.1 machines), so every candidate is tried in order.
+function Select-PortfindArch([string[]]$Candidates, [bool]$Is64BitOS) {
+    foreach ($c in $Candidates) {
+        switch -Regex ("$c".Trim()) {
+            '^(x64|amd64)$' { return 'amd64' }
+            '^arm64$' { return 'arm64' }
+        }
+    }
+    # Unrecognized name on a 64-bit OS: the x64 build runs natively on x64 and
+    # under emulation on Windows on ARM, so it is the safe choice.
+    if ($Is64BitOS) { return 'amd64' }
+    $seen = ($Candidates | Where-Object { $_ }) -join ', '
+    throw "portfind needs 64-bit Windows (x64 or ARM64). Detected: $(if ($seen) { $seen } else { 'unknown' })."
+}
+
 function Get-PortfindArch {
-    $arch = $null
-    try {
-        $arch = [string][System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
-    } catch {
-        $arch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
-    }
-    switch -Regex ($arch) {
-        '^(X64|AMD64)$' { return 'amd64' }
-        '^(Arm64|ARM64)$' { return 'arm64' }
-        default { throw "portfind needs 64-bit Windows (x64 or ARM64); this machine reports '$arch'." }
-    }
+    $osArch = $null
+    try { $osArch = [string][System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture } catch { }
+    # PROCESSOR_ARCHITEW6432 is set when a 32-bit PowerShell runs on 64-bit Windows.
+    $candidates = @($osArch, $env:PROCESSOR_ARCHITEW6432, $env:PROCESSOR_ARCHITECTURE)
+    return Select-PortfindArch $candidates ([Environment]::Is64BitOperatingSystem)
 }
 
 function Get-PortfindFile([string]$Url, [string]$OutFile) {

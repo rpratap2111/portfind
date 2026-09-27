@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -21,7 +23,7 @@ func main() {
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
 	if *showVersion {
-		fmt.Println("portfind", version)
+		fmt.Println("portfind", buildVersion())
 		return
 	}
 
@@ -29,6 +31,18 @@ func main() {
 		fmt.Fprintln(os.Stderr, "portfind:", err)
 		os.Exit(1)
 	}
+}
+
+// buildVersion prefers the release-stamped version, then the module version
+// Go records for `go install ...@v0.1.0` builds, then "dev".
+func buildVersion() string {
+	if version != "dev" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return strings.TrimPrefix(info.Main.Version, "v")
+	}
+	return version
 }
 
 func run() error {
