@@ -4,11 +4,13 @@
 #   curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.sh | sh
 #
 # It downloads the release archive for your CPU, verifies its SHA-256 against
-# the release's checksums.txt and installs `portfind` to ~/.local/bin.
+# the release's checksums.txt, installs `portfind` to ~/.local/bin and, if
+# that isn't on your PATH yet, adds it in ~/.bashrc / ~/.zshrc.
 #
 # Options (environment variables):
 #   PORTFIND_VERSION=v1.1.0          a specific release instead of the latest
 #   PORTFIND_INSTALL_DIR=/opt/bin    somewhere other than ~/.local/bin
+#   PORTFIND_NO_MODIFY_PATH=1        don't touch shell startup files
 #   PORTFIND_DOWNLOAD_BASE=https://… a mirror hosting the release files
 #
 # Everything is inside main(), so a download cut off halfway runs nothing.
@@ -41,6 +43,19 @@ sha256() {
 	else
 		err "need sha256sum or shasum to verify the download"
 	fi
+}
+
+# add_to_path appends a marked block to a shell startup file that puts $1 on
+# PATH (only if it isn't there already). uninstall.sh removes the block by its
+# markers. Prints the file name if it changed anything.
+add_to_path() { # dir rcfile
+	[ -f "$2" ] && grep -q '# >>> portfind >>>' "$2" && return 0
+	{
+		printf '\n# >>> portfind >>>\n'
+		printf 'case ":$PATH:" in *":%s:"*) ;; *) export PATH="%s:$PATH" ;; esac\n' "$1" "$1"
+		printf '# <<< portfind <<<\n'
+	} >>"$2"
+	printf '%s\n' "$2"
 }
 
 main() {
@@ -88,16 +103,31 @@ main() {
 	mv -f "$dir/.portfind.new" "$dir/portfind"
 
 	printf '\nInstalled %s to %s\n' "$("$dir/portfind" --version)" "$dir"
+
 	case ":$PATH:" in
 	*":$dir:"*)
 		printf 'Run it with:  portfind\n'
 		;;
 	*)
-		printf '\n%s is not on your PATH. Add it, then open a new terminal:\n' "$dir"
-		printf '  bash:  echo '\''export PATH="%s:$PATH"'\'' >> ~/.bashrc\n' "$dir"
-		printf '  zsh:   echo '\''export PATH="%s:$PATH"'\'' >> ~/.zshrc\n' "$dir"
-		printf '  fish:  fish_add_path %s\n' "$dir"
-		printf 'Or run it directly:  %s/portfind\n' "$dir"
+		changed=""
+		if [ "${PORTFIND_NO_MODIFY_PATH:-}" != 1 ]; then
+			for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+				# Only shells the user has; bash's file is created if missing.
+				if [ -f "$rc" ] || [ "$rc" = "$HOME/.bashrc" ]; then
+					f=$(add_to_path "$dir" "$rc")
+					[ -n "$f" ] && changed="$changed ~/${f#"$HOME"/}"
+				fi
+			done
+		fi
+		if [ -n "$changed" ]; then
+			printf 'Added %s to your PATH in:%s\n' "$dir" "$changed"
+		else
+			printf '%s is not on your PATH yet.\n' "$dir"
+		fi
+		# A piped installer can't change the shell it was run from.
+		printf '\nOpen a new terminal, or run this to use portfind right away:\n'
+		printf '  export PATH="%s:$PATH"\n' "$dir"
+		if have fish; then printf 'fish users: fish_add_path %s\n' "$dir"; fi
 		;;
 	esac
 	printf 'Tip: sudo portfind shows (and can stop) other users'\'' processes too.\n'

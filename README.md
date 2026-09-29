@@ -97,7 +97,7 @@ Requires 64-bit Linux (x86_64 or arm64); any distribution. No root needed.
 curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.sh | sh
 ```
 
-The installer downloads the latest release for your CPU, **verifies its SHA-256 checksum** and puts `portfind` in `~/.local/bin` (most distributions already have that on your PATH; if yours doesn't, the installer tells you the line to add). Then run `portfind`. It works under `sudo` too, which lets it see and stop other users' processes.
+The installer downloads the latest release for your CPU, **verifies its SHA-256 checksum**, puts `portfind` in `~/.local/bin` and, if that folder isn't on your PATH yet, adds it in `~/.bashrc` (and `~/.zshrc` if you use zsh). Open a new terminal and run `portfind`, or paste the `export PATH=…` line the installer prints to use it straight away. It works under `sudo` too, which lets it see and stop other users' processes.
 
 <details>
 <summary>Installer options and uninstall</summary>
@@ -107,7 +107,11 @@ The installer downloads the latest release for your CPU, **verifies its SHA-256 
 curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.sh | PORTFIND_VERSION=v1.1.0 sh
 curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.sh | PORTFIND_INSTALL_DIR=~/bin sh
 
-# Uninstall (keeps your history; add PORTFIND_PURGE_HISTORY=1 before `sh` to delete it too):
+# Don't touch ~/.bashrc / ~/.zshrc:
+curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.sh | PORTFIND_NO_MODIFY_PATH=1 sh
+
+# Uninstall: removes the binary and the PATH lines; keeps your history
+# (add PORTFIND_PURGE_HISTORY=1 before `sh` to delete it too):
 curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/uninstall.sh | sh
 ```
 

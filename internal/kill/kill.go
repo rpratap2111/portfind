@@ -41,7 +41,7 @@ func CheckAllowed(t Target) error {
 	}
 	for _, c := range criticalProcesses {
 		if strings.EqualFold(t.Process, c) {
-			return fmt.Errorf("refusing to kill %s (PID %d): it is a critical Windows process", t.Process, t.PID)
+			return fmt.Errorf("refusing to kill %s (PID %d): it is a critical system process", t.Process, t.PID)
 		}
 	}
 	return nil
