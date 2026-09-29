@@ -4,8 +4,6 @@
 
 <div align="center">
 
-[![Language: English](https://img.shields.io/badge/Language-English-blue?style=for-the-badge)](#)
-[![Language: Hindi](https://img.shields.io/badge/भाषा-हिन्दी-orange?style=for-the-badge)](README.hi.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/rpratap2111/portfind/releases)
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
