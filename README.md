@@ -110,6 +110,14 @@ If you have Go 1.26 or newer:
 go install github.com/rpratap2111/portfind/cmd/portfind@latest
 ```
 
+#### Updating
+
+```powershell
+portfind --update
+```
+
+This checks GitHub for a newer release and, if there is one, downloads it, verifies its checksum, and replaces both `portfind.exe` and `portfind-tray.exe`. If the tray icon is running, quit it and open it again afterwards. Re-running the install command also updates.
+
 #### Uninstall
 
 Close portfind first, including the tray icon (click it → **Quit**), then:
@@ -141,9 +149,12 @@ curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.s
 The installer downloads the latest release for your CPU, **verifies its SHA-256 checksum**, puts `portfind` in `~/.local/bin` and, if that folder isn't on your PATH yet, adds it in `~/.bashrc` (and `~/.zshrc` if you use zsh). Open a new terminal and run `portfind`, or paste the `export PATH=…` line the installer prints to use it straight away. It works under `sudo` too, which lets it see and stop other users' processes.
 
 <details>
-<summary>Installer options and uninstall</summary>
+<summary>Updating, installer options and uninstall</summary>
 
 ```sh
+# Update to the latest release (verifies the checksum first):
+portfind --update
+
 # A specific release, or another install directory:
 curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.sh | PORTFIND_VERSION=v1.1.0 sh
 curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.sh | PORTFIND_INSTALL_DIR=~/bin sh
@@ -181,6 +192,16 @@ Port killers such as [pik](https://github.com/jacek-kurlit/pik), pview, PortSlay
 ---
 
 ## Usage
+
+| Command | What it does |
+|---|---|
+| `portfind` | Open the interactive terminal UI |
+| `portfind --json` | Print listening ports as JSON and exit, for scripts ([details](#scripting-with---json)) |
+| `portfind --update` | Update portfind to the latest release |
+| `portfind --version` | Print the version, e.g. `v1.2.0` (also `-v`) |
+| `portfind --help` | Show commands and keys (also `-h`) |
+
+### The terminal UI
 
 Run `portfind`. It opens on every listening TCP port, refreshes every 2 seconds and keeps your search and selection while it does.
 
@@ -240,7 +261,6 @@ Every key you can type goes into the search box, so all commands live on non-typ
 portfind --json | jq '.ports[] | select(.risk == "LOW") | {port, process, project}'
 ```
 
-`portfind --version` prints the version.
 
 ---
 

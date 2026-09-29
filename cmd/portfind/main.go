@@ -1,6 +1,6 @@
 // Command portfind is an interactive terminal UI for finding and killing
-// processes that are listening on network ports. With --json it prints the
-// listening ports as JSON instead, for scripts.
+// processes that are listening on network ports. See `portfind --help` for
+// the other modes (--json, --update, --version).
 package main
 
 // Windows resources (icon, manifest) for local builds of portfind.exe; the
@@ -8,7 +8,6 @@ package main
 //go:generate go run github.com/tc-hib/go-winres@v0.3.3 simply --arch amd64,arm64 --manifest cli --icon ../../assets/portfind.ico --product-name portfind --file-description "portfind terminal UI" --original-filename portfind.exe --copyright "MIT License"
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"runtime/debug"
@@ -20,43 +19,57 @@ import (
 	"github.com/rpratap2111/portfind/internal/inspector"
 	"github.com/rpratap2111/portfind/internal/scan"
 	"github.com/rpratap2111/portfind/internal/tui"
+	"github.com/rpratap2111/portfind/internal/update"
 )
 
 // version is set at release time via -ldflags "-X main.version=...".
 var version = "dev"
 
 func main() {
-	showVersion := flag.Bool("version", false, "print the version and exit")
-	asJSON := flag.Bool("json", false, "print listening ports as JSON and exit (no UI, no history)")
-	flag.Parse()
-	if *showVersion {
-		fmt.Println("portfind", buildVersion())
-		return
+	m, err := parseArgs(os.Args[1:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "portfind: %v\nRun 'portfind --help' for usage.\n", err)
+		os.Exit(2)
 	}
-	if *asJSON {
-		if err := runJSON(); err != nil {
-			fmt.Fprintln(os.Stderr, "portfind:", err)
-			os.Exit(1)
-		}
-		return
+	switch m {
+	case modeHelp:
+		printHelp(os.Stdout, displayVersion())
+	case modeVersion:
+		fmt.Println(displayVersion())
+	case modeJSON:
+		exitOn(runJSON())
+	case modeUpdate:
+		exitOn(runUpdate())
+	default:
+		exitOn(run())
 	}
+}
 
-	if err := run(); err != nil {
+func exitOn(err error) {
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "portfind:", err)
 		os.Exit(1)
 	}
 }
 
 // buildVersion prefers the release-stamped version, then the module version
-// Go records for `go install ...@v0.1.0` builds, then "dev".
+// Go records for `go install ...@v0.1.0` builds, then "dev". It has no "v".
 func buildVersion() string {
 	if version != "dev" {
-		return version
+		return strings.TrimPrefix(version, "v")
 	}
 	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
 		return strings.TrimPrefix(info.Main.Version, "v")
 	}
 	return version
+}
+
+// displayVersion is the version as users see it: "v1.1.1", or "dev".
+func displayVersion() string {
+	if v := buildVersion(); v != "dev" {
+		return "v" + v
+	}
+	return "dev"
 }
 
 func run() error {
@@ -82,6 +95,32 @@ func runJSON() error {
 	if err := writeJSON(os.Stdout, res); err != nil {
 		return fmt.Errorf("write JSON: %w", err)
 	}
+	return nil
+}
+
+// runUpdate replaces this portfind (and, on Windows, the tray app next to it)
+// with the latest release.
+func runUpdate() error {
+	u, err := update.New(buildVersion())
+	if err != nil {
+		return err
+	}
+	fmt.Println("Checking for updates...")
+	res, err := u.Run()
+	if err != nil {
+		return err
+	}
+	if !res.Updated {
+		fmt.Printf("portfind %s is already the latest version.\n", res.From)
+		return nil
+	}
+	fmt.Printf("Updated portfind %s -> %s (%s).\n", res.From, res.To, strings.Join(res.Files, ", "))
+	for _, f := range res.Files {
+		if strings.HasPrefix(f, "portfind-tray") {
+			fmt.Println("If the tray icon is running, quit it and open it again to use the new version.")
+		}
+	}
+	fmt.Printf("What's new: %s/tag/%s\n", update.ReleasesURL, res.To)
 	return nil
 }
 

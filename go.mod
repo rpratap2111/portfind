@@ -7,6 +7,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.10.1
 	github.com/getlantern/systray v1.2.2
+	golang.org/x/mod v0.41.0
 	golang.org/x/sys v0.48.0
 	modernc.org/sqlite v1.59.0
 )
