@@ -1,8 +1,47 @@
-# portfind
+# Portfind
 
-**Know what you're killing.** portfind finds the process holding a network port on Windows or Linux and lets you kill it, and before you do, it shows you *which project* that process belongs to, how long it has been running, and how risky killing it is.
+> **Know what you're killing.** A smart, cross-platform port and process manager with project context, risk tiers, and zero accidental downtime.
 
-It's a terminal UI (`portfind`) on both, plus a notification-area icon (`portfind-tray`) on Windows. All of them share the same engine.
+<div align="center">
+
+[![Language: English](https://img.shields.io/badge/Language-English-blue?style=for-the-badge)](#)
+[![Language: Hindi](https://img.shields.io/badge/भाषा-हिन्दी-orange?style=for-the-badge)](README.hi.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/rpratap2111/portfind/releases)
+[![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
+
+### Topic Tags
+[![Topic: Port Management](https://img.shields.io/badge/Topic-Port_Management-0052CC?style=for-the-badge&logo=target&logoColor=white)](#)
+[![DevTools](https://img.shields.io/badge/Ecosystem-Developer_Tools-FF6F00?style=for-the-badge&logo=visualstudiocode&logoColor=white)](#)
+
+### Tech Stack
+[![Go / Golang](https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://golang.org)
+[![SQLite](https://img.shields.io/badge/SQLite-modernc.org%2Fsqlite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://modernc.org/sqlite)
+[![Windows API](https://img.shields.io/badge/Windows_API-GetExtendedTcpTable-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#)
+[![Linux pidfd](https://img.shields.io/badge/Linux-pidfd_%26_procfs-FCC624?style=for-the-badge&logo=linux&logoColor=black)](#)
+[![PowerShell & Bash](https://img.shields.io/badge/Scripts-PowerShell_%26_Bash-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](#)
+
+</div>
+
+---
+
+## Brief Summary
+
+**portfind** finds the process holding a network port on Windows or Linux and lets you kill it safely. But unlike traditional port killers, before you press kill, it reveals **which project** that process belongs to, its full command line, how long it has been running, and its safety risk level.
+
+It comes as:
+- An interactive **Terminal UI** (`portfind`) on both Windows and Linux.
+- A discreet **Notification-Area Tray Icon** (`portfind-tray`) on Windows with quick actions.
+- A zero-overhead **JSON CLI mode** (`portfind --json`) for automated developer scripts.
+
+### Core Highlights:
+- **Project Awareness:** Scans `package.json`, `Cargo.toml`, `go.mod`, or Git repositories to tell you which codebase spawned the process.
+- **Risk Tiers:** Categorizes processes as **LOW**, **MEDIUM**, or **HIGH** risk so you don't accidentally shut down a database or an active SSH session.
+- **Safe Termination:** Pins process handles (`pidfd` on Linux / process handles on Windows) before stopping them, preventing accidental kills if a PID is recycled.
+- **Port-Fight Detection:** Detects when a supervisor (like `nodemon`) keeps reviving a process on the same port and warns you before you enter an endless kill loop.
+- **Persistent History:** SQLite-backed audit trail of all freed ports and terminated processes.
+
+---
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -19,6 +58,8 @@ It's a terminal UI (`portfind`) on both, plus a notification-area icon (`portfin
 │ ↑/↓ nav  type to search  enter kill  tab history  ctrl+r refresh  ctrl+w warnings  esc quit  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
+
+---
 
 ## Install
 
@@ -89,6 +130,8 @@ Installed another way?
 - **`go install`:** delete `%USERPROFILE%\go\bin\portfind.exe`.
 - **Manual download:** delete the folder you extracted, and remove it from your PATH if you added it.
 
+---
+
 ### Linux
 
 Requires 64-bit Linux (x86_64 or arm64); any distribution. No root needed.
@@ -119,19 +162,25 @@ Or download `portfind_linux_amd64.tar.gz` / `portfind_linux_arm64.tar.gz` from t
 
 </details>
 
+---
+
 ## Why portfind?
 
 Port killers such as [pik](https://github.com/jacek-kurlit/pik), pview, PortSlayer and portndock are built around one question: *which process is on port 3000?* They show you OS-level facts (PID, process name) and let you kill it. That's rarely enough on its own. `node` on :3000 could be the app you forgot to stop, or a teammate's service you're about to take down. portfind is built around a different question, **"what exactly am I about to kill?"**, and adds the context you need to answer it:
 
-| | typical port killer | portfind |
-|---|---|---|
-| Port, PID, process name | ✓ | ✓ |
-| **Project** (from `package.json`, `Cargo.toml`, `go.mod` or the git repo it was started in) | | ✓ |
-| **Full command line** (`node server.js`, not just `node.exe`) | | ✓ |
-| **Uptime** | | ✓ |
-| **Risk tier** that decides how much confirmation a kill needs | | ✓ |
-| Re-checks the PID right before killing, so a recycled PID is never hit | | ✓ |
-| **Port-fight detection:** notices when something keeps respawning on a port | | ✓ |
+| Feature | Typical port killer | **portfind** |
+|---|:---:|:---:|
+| Port, PID, process name | ✓ | **✓** |
+| **Project** (from `package.json`, `Cargo.toml`, `go.mod` or the git repo it was started in) | ✗ | **✓** |
+| **Full command line** (`node server.js`, not just `node.exe`) | ✗ | **✓** |
+| **Uptime** | ✗ | **✓** |
+| **Risk tier** that decides how much confirmation a kill needs | ✗ | **✓** |
+| Re-checks PID right before killing (no recycled PID accidents) | ✗ | **✓** |
+| **Port-fight detection:** notices when something keeps respawning on a port | ✗ | **✓** |
+| **Kill history tracking** (SQLite persistent storage) | ✗ | **✓** |
+| **Windows Notification Tray** with 1-click safe kill | ✗ | **✓** |
+
+---
 
 ## Usage
 
@@ -149,6 +198,8 @@ Run `portfind`. It opens on every listening TCP port, refreshes every 2 seconds 
 | `Ctrl+C` | Quit |
 
 Every key you can type goes into the search box, so all commands live on non-typing keys.
+
+---
 
 ### Scripting with `--json`
 
@@ -175,7 +226,7 @@ Every key you can type goes into the search box, so all commands live on non-typ
 
 `warnings` lists processes the OS wouldn't let portfind fully inspect; their entries still appear, with `null`s. If the scan itself fails, portfind exits with code 1 and prints the error to stderr.
 
-PowerShell:
+#### PowerShell:
 
 ```powershell
 # What's on port 3000?
@@ -185,7 +236,7 @@ PowerShell:
 (portfind --json | ConvertFrom-Json).ports | Where-Object project | Format-Table port, process, project
 ```
 
-jq:
+#### jq:
 
 ```sh
 portfind --json | jq '.ports[] | select(.risk == "LOW") | {port, process, project}'
@@ -193,7 +244,9 @@ portfind --json | jq '.ports[] | select(.risk == "LOW") | {port, process, projec
 
 `portfind --version` prints the version.
 
-### Risk tiers
+---
+
+### Risk Tiers
 
 | Tier | What | To kill |
 |---|---|---|
@@ -206,7 +259,9 @@ Before killing, portfind pins the process so its PID can't be reused (a process 
 - **Windows:** the process is terminated. Core processes such as `lsass`, `csrss`, `wininit`, `services` and `svchost` are always refused, since killing them crashes or reboots Windows.
 - **Linux:** the process gets `SIGTERM` so it can shut down cleanly, then `SIGKILL` if it's still running after 5 seconds. `systemd`, `init`, `sshd` (you could lock yourself out of a remote machine) and `systemd-resolved` (DNS) are always refused; use `systemctl` for services.
 
-### Tray icon (Windows)
+---
+
+### Tray Icon (Windows)
 
 Press `Win`, search **portfind** and open it (or run `portfind-tray`). An icon appears in the notification area. On Windows 11 it may start in the `^` overflow; drag it onto the taskbar to keep it visible. Click the icon and portfind rescans, then lists the ports you're most likely to want back, dev servers first. Each port opens a submenu with its details and a separate **Kill** item, so a stray click on a port never kills anything:
 
@@ -231,22 +286,30 @@ Quit
 - **Open Terminal UI** opens `portfind` in a new terminal window.
 - **Start with Windows** starts the tray icon when you sign in. Click it again to turn it off, or use Task Manager's Startup apps. It needs no admin rights, and the uninstaller turns it off.
 
-### Port fights and history
+---
+
+### Port Fights and History
 
 portfind logs every process that leaves a port, and whether portfind killed it. Kills made from the tray are logged too. If you've killed the same port **3 times in 15 minutes**, a hint appears next to the search box: usually `nodemon`, a supervisor or an auto-restarting service is bringing it back, and killing it again won't help. Press `Tab` to browse the history.
 
-History is stored in SQLite, at `%LOCALAPPDATA%\portfind\history.db` on Windows and `~/.cache/portfind/history.db` on Linux.
+History is stored in SQLite, at:
+- **Windows:** `%LOCALAPPDATA%\portfind\history.db`
+- **Linux:** `~/.cache/portfind/history.db`
+
+---
 
 ## Limitations
 
-- **Windows and Linux.** macOS isn't supported yet. The tray icon is Windows-only; on Linux use the terminal UI.
+- **Windows and Linux:** macOS isn't supported yet. The tray icon is Windows-only; on Linux use the terminal UI.
 - **Other users' and elevated processes:**
   - On Windows, without admin rights portfind can't read the details (age, command line, project) of services and elevated processes, or kill them. They still appear, with a warning under `Ctrl+W`. Run portfind as administrator to manage them.
   - On Linux, a normal user can't see which of *another user's* processes owns a port. The port still appears, as `(unknown)`, with a warning naming the owner (for example root). Run `sudo portfind` to see and manage those.
 - **Project detection** uses the process's *current* working directory, falling back to the folder of its executable. A process that changed directory after starting may be attributed to the wrong project.
-- TCP listeners only; UDP isn't shown.
+- **TCP listeners only;** UDP isn't shown.
 
-## Build from source
+---
+
+## Build From Source
 
 ```powershell
 git clone https://github.com/rpratap2111/portfind
@@ -272,6 +335,8 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
+---
+
 ## License
 
-[MIT](LICENSE)
+Distributed under the [MIT](LICENSE) License.
