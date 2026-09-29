@@ -1,8 +1,8 @@
 # portfind
 
-**Know what you're killing.** portfind finds the process holding a network port on Windows and lets you kill it, and before you do, it shows you *which project* that process belongs to, how long it has been running, and how risky killing it is.
+**Know what you're killing.** portfind finds the process holding a network port on Windows or Linux and lets you kill it, and before you do, it shows you *which project* that process belongs to, how long it has been running, and how risky killing it is.
 
-It comes as a terminal UI (`portfind`) and a notification-area icon (`portfind-tray`) that share the same engine.
+It's a terminal UI (`portfind`) on both, plus a notification-area icon (`portfind-tray`) on Windows. All of them share the same engine.
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -22,9 +22,11 @@ It comes as a terminal UI (`portfind`) and a notification-area icon (`portfind-t
 
 ## Install
 
+### Windows
+
 Requires 64-bit Windows 10 or 11 (x64 or ARM64). No admin rights needed.
 
-### One command (recommended)
+#### One command (recommended)
 
 Paste this into PowerShell:
 
@@ -53,7 +55,7 @@ $env:PORTFIND_NO_MODIFY_PATH = "1"              # don't touch PATH
 
 </details>
 
-### Manual download
+#### Manual download
 
 1. Open the [latest release](https://github.com/rpratap2111/portfind/releases/latest) and download `portfind_windows_amd64.zip` (or `portfind_windows_arm64.zip` on Windows on ARM).
 2. Extract it anywhere. Run `portfind.exe` for the terminal UI or `portfind-tray.exe` for the tray icon, and keep the two files in the same folder.
@@ -61,7 +63,7 @@ $env:PORTFIND_NO_MODIFY_PATH = "1"              # don't touch PATH
 
 > **Windows SmartScreen:** the binaries aren't code-signed, so the first time you run a *browser-downloaded* `portfind.exe` Windows may show "Windows protected your PC". Click **More info → Run anyway**. The one-command installer downloads with PowerShell, which normally avoids this prompt.
 
-### With Go
+#### With Go
 
 If you have Go 1.26 or newer:
 
@@ -69,7 +71,7 @@ If you have Go 1.26 or newer:
 go install github.com/rpratap2111/portfind/cmd/portfind@latest
 ```
 
-### Uninstall
+#### Uninstall
 
 Close portfind first, including the tray icon (click it → **Quit**), then:
 
@@ -86,6 +88,32 @@ $env:PORTFIND_PURGE_HISTORY = "1"
 Installed another way?
 - **`go install`:** delete `%USERPROFILE%\go\bin\portfind.exe`.
 - **Manual download:** delete the folder you extracted, and remove it from your PATH if you added it.
+
+### Linux
+
+Requires 64-bit Linux (x86_64 or arm64); any distribution. No root needed.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.sh | sh
+```
+
+The installer downloads the latest release for your CPU, **verifies its SHA-256 checksum** and puts `portfind` in `~/.local/bin` (most distributions already have that on your PATH; if yours doesn't, the installer tells you the line to add). Then run `portfind`. It works under `sudo` too, which lets it see and stop other users' processes.
+
+<details>
+<summary>Installer options and uninstall</summary>
+
+```sh
+# A specific release, or another install directory:
+curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.sh | PORTFIND_VERSION=v1.1.0 sh
+curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.sh | PORTFIND_INSTALL_DIR=~/bin sh
+
+# Uninstall (keeps your history; add PORTFIND_PURGE_HISTORY=1 before `sh` to delete it too):
+curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/uninstall.sh | sh
+```
+
+Or download `portfind_linux_amd64.tar.gz` / `portfind_linux_arm64.tar.gz` from the [latest release](https://github.com/rpratap2111/portfind/releases/latest) and extract `portfind` anywhere on your PATH, or use `go install` (see *With Go* above; it works on Linux too).
+
+</details>
 
 ## Why portfind?
 
@@ -112,7 +140,7 @@ Run `portfind`. It opens on every listening TCP port, refreshes every 2 seconds 
 | `Enter` | Kill the selected process (asks for confirmation) |
 | `Tab` | History of processes that left their ports |
 | `Ctrl+R` | Refresh now |
-| `Ctrl+W` | Show warnings (e.g. processes Windows wouldn't let portfind inspect) |
+| `Ctrl+W` | Show warnings (e.g. processes the OS wouldn't let portfind inspect) |
 | `Esc` | Back out of a view or dialog; quits from the port list |
 | `Ctrl+C` | Quit |
 
@@ -141,7 +169,7 @@ Every key you can type goes into the search box, so all commands live on non-typ
 }
 ```
 
-`warnings` lists processes Windows wouldn't let portfind fully inspect; their entries still appear, with `null`s. If the scan itself fails, portfind exits with code 1 and prints the error to stderr.
+`warnings` lists processes the OS wouldn't let portfind fully inspect; their entries still appear, with `null`s. If the scan itself fails, portfind exits with code 1 and prints the error to stderr.
 
 PowerShell:
 
@@ -166,12 +194,15 @@ portfind --json | jq '.ports[] | select(.risk == "LOW") | {port, process, projec
 | Tier | What | To kill |
 |---|---|---|
 | **LOW** | Dev runtimes: `node`, `python`, `ruby`, `java`, `dlv`, anything started by `go run` | Press `y` in a `[y/N]` prompt |
-| **MEDIUM** | Anything unrecognized, and Windows services | Type the process name |
+| **MEDIUM** | Anything unrecognized, and system services | Type the process name |
 | **HIGH** | Databases (`postgres`, `mysql`, `mongod`, `redis-server`, `sqlservr`) and anything started over SSH | Type the process name |
 
-Before killing, portfind holds the process open (so Windows can't reuse its PID), checks that it's still the same executable and still listening on that port, and only then terminates it and waits for it to exit. Core Windows processes such as `lsass`, `csrss`, `wininit`, `services` and `svchost` are always refused, since killing them crashes or reboots Windows.
+Before killing, portfind pins the process so its PID can't be reused (a process handle on Windows, a pidfd on Linux), checks that it's still the same executable and still listening on that port, and only then stops it and waits for it to exit.
 
-### Tray icon
+- **Windows:** the process is terminated. Core processes such as `lsass`, `csrss`, `wininit`, `services` and `svchost` are always refused, since killing them crashes or reboots Windows.
+- **Linux:** the process gets `SIGTERM` so it can shut down cleanly, then `SIGKILL` if it's still running after 5 seconds. `systemd`, `init`, `sshd` (you could lock yourself out of a remote machine) and `systemd-resolved` (DNS) are always refused; use `systemctl` for services.
+
+### Tray icon (Windows)
 
 Press `Win`, search **portfind** and open it (or run `portfind-tray`). An icon appears in the notification area. On Windows 11 it may start in the `^` overflow; drag it onto the taskbar to keep it visible. Click the icon and portfind rescans, then lists the ports you're most likely to want back, dev servers first. Each port opens a submenu with its details and a separate **Kill** item, so a stray click on a port never kills anything:
 
@@ -200,12 +231,14 @@ Quit
 
 portfind logs every process that leaves a port, and whether portfind killed it. Kills made from the tray are logged too. If you've killed the same port **3 times in 15 minutes**, a hint appears next to the search box: usually `nodemon`, a supervisor or an auto-restarting service is bringing it back, and killing it again won't help. Press `Tab` to browse the history.
 
-History is stored in `%LOCALAPPDATA%\portfind\history.db` (SQLite).
+History is stored in SQLite, at `%LOCALAPPDATA%\portfind\history.db` on Windows and `~/.cache/portfind/history.db` on Linux.
 
 ## Limitations
 
-- **Windows only**, for now. The code is laid out for Linux and macOS support later.
-- **Services and elevated processes:** without admin rights Windows won't let portfind read their details (age, command line, project) or kill them. They still appear, with a warning under `Ctrl+W`. Run portfind as administrator to manage them.
+- **Windows and Linux.** macOS isn't supported yet. The tray icon is Windows-only; on Linux use the terminal UI.
+- **Other users' and elevated processes:**
+  - On Windows, without admin rights portfind can't read the details (age, command line, project) of services and elevated processes, or kill them. They still appear, with a warning under `Ctrl+W`. Run portfind as administrator to manage them.
+  - On Linux, a normal user can't see which of *another user's* processes owns a port. The port still appears, as `(unknown)`, with a warning naming the owner (for example root). Run `sudo portfind` to see and manage those.
 - **Project detection** uses the process's *current* working directory, falling back to the folder of its executable. A process that changed directory after starting may be attributed to the wrong project.
 - TCP listeners only; UDP isn't shown.
 

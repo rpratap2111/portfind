@@ -16,15 +16,6 @@ type Target struct {
 	Process string // display name, e.g. "node"
 }
 
-// criticalProcesses are never killed, whatever the user confirms. Terminating
-// any of these (possible when elevated) crashes or reboots Windows; svchost
-// instances host core services such as RPC and should be stopped through the
-// Services manager instead.
-var criticalProcesses = []string{
-	"system", "system idle process", "registry", "smss", "csrss",
-	"wininit", "winlogon", "services", "lsass", "svchost",
-}
-
 // Terminate kills t after re-verifying it. Before terminating, the OS
 // implementation confirms that the PID still runs an executable named
 // t.Process and still listens on t.Port, so a PID recycled since the scan is
@@ -39,8 +30,11 @@ func Terminate(ins inspector.PortInspector, t Target) error {
 // CheckAllowed reports why t may never be killed, or nil if it may be.
 // Front-ends use it to avoid offering processes that would be refused.
 func CheckAllowed(t Target) error {
+	if t.PID == 0 {
+		return fmt.Errorf("refusing to kill PID 0: %s", pidZeroReason)
+	}
 	if t.PID <= 4 {
-		return fmt.Errorf("refusing to kill PID %d: it is a kernel pseudo-process", t.PID)
+		return fmt.Errorf("refusing to kill PID %d: it is a core system process", t.PID)
 	}
 	if t.Process == "" {
 		return fmt.Errorf("refusing to kill PID %d: its process name is unknown, so it cannot be verified", t.PID)

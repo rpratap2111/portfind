@@ -20,6 +20,15 @@ jobs:
           if [ -n "$unformatted" ]; then echo "Not gofmt'ed:"; echo "$unformatted"; exit 1; fi
       - run: go vet ./...
       - run: go test ./...
-      - name: vet for Linux (keeps build tags honest)
-        shell: bash
-        run: GOOS=linux go vet ./...
+
+  test-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
+      - name: installer scripts parse under POSIX sh
+        run: sh -n install.sh && sh -n uninstall.sh

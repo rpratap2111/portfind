@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build !windows && !linux
 
 package inspector
 
@@ -9,8 +9,8 @@ import (
 
 type unsupportedInspector struct{}
 
-// New returns the PortInspector for the current OS. Only Windows is
-// implemented so far; other platforms get an inspector that reports so.
+// New returns the PortInspector for the current OS. Only Windows and Linux
+// are implemented so far; other platforms get an inspector that reports so.
 func New() PortInspector {
 	return unsupportedInspector{}
 }

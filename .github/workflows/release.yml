@@ -9,7 +9,10 @@ permissions:
 
 jobs:
   test:
-    runs-on: windows-latest # the scanner and kill code call Windows APIs
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest] # the scanner and kill code are OS-specific
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
