@@ -31,6 +31,7 @@ type slot struct {
 }
 
 type app struct {
+	opts Options
 	ins  inspector.PortInspector
 	hist *history.Store // nil if the database could not be opened
 	hwnd uintptr        // systray's hidden window; 0 if not found
@@ -40,18 +41,32 @@ type app struct {
 
 	header, fight, empty, hidden, overflow *systray.MenuItem
 	startup                                *systray.MenuItem // "Start with Windows" checkbox
+
+	// Updates (see updates_windows.go).
+	updateInfo, updateNow *systray.MenuItem // "vX is available" / "Restart to update"
+	latest                string            // newer release found by the last check
+	updating              bool
+	restart               *RestartError // set when an update installed; Run returns it
+}
+
+// Options configure Run.
+type Options struct {
+	Version     string // this build's version without "v", or "dev"
+	UpdatedFrom string // set by the previous instance after "Restart to update"
 }
 
 // Run shows the tray icon and blocks until the user quits. It returns
-// ErrAlreadyRunning if another instance is active.
-func Run() error {
+// ErrAlreadyRunning if another instance is active, and a *RestartError after
+// "Restart to update" installed a new version, which the caller should start
+// once Run has returned (and so released the single-instance lock).
+func Run(opts Options) error {
 	release, err := singleInstance()
 	if err != nil {
 		return err
 	}
 	defer release()
 
-	a := &app{ins: inspector.New()}
+	a := &app{opts: opts, ins: inspector.New()}
 	var histErr error
 	if path, err := history.DefaultPath(); err != nil {
 		histErr = err
@@ -60,6 +75,9 @@ func Run() error {
 	}
 
 	systray.Run(func() { a.onReady(histErr) }, a.onExit)
+	if a.restart != nil {
+		return a.restart
+	}
 	return nil
 }
 
@@ -89,6 +107,9 @@ func (a *app) onReady(histErr error) {
 	a.hidden = hiddenItem()
 	a.overflow = hiddenItem()
 	systray.AddSeparator()
+	a.updateInfo = hiddenItem()
+	a.updateNow = systray.AddMenuItem("Restart to update", "Download the new version, verify it, and restart")
+	a.updateNow.Hide()
 	openTUI := systray.AddMenuItem("Open Terminal UI", "Open portfind in a new terminal window")
 	a.startup = systray.AddMenuItemCheckbox("Start with Windows", "Start the portfind tray icon when you sign in", false)
 	quit := systray.AddMenuItem("Quit", "Close the portfind tray icon")
@@ -98,6 +119,7 @@ func (a *app) onReady(histErr error) {
 		}
 	})
 	go a.watch(a.startup, a.toggleStartup)
+	go a.watch(a.updateNow, a.installUpdate)
 	go a.watch(quit, systray.Quit)
 
 	hwnd, err := findTrayWindow()
@@ -115,6 +137,10 @@ func (a *app) onReady(histErr error) {
 	if histErr != nil {
 		a.notify("portfind history unavailable", histErr.Error(), notifyWarning)
 	}
+	if opts := a.opts; opts.UpdatedFrom != "" {
+		a.notify("portfind updated to "+displayVersion(opts.Version), "Updated from "+displayVersion(opts.UpdatedFrom)+".", notifyInfo)
+	}
+	go a.checkForUpdates()
 }
 
 func (a *app) onExit() {
@@ -164,7 +190,7 @@ func (a *app) refresh() {
 	}
 
 	shown, hidden, overflow := menuPorts(res.Entries, len(a.slots))
-	a.header.SetTitle(fmt.Sprintf("portfind · %d listening ports", len(res.Entries)))
+	a.header.SetTitle(fmt.Sprintf("portfind %s · %d listening ports", displayVersion(a.opts.Version), len(res.Entries)))
 	systray.SetTooltip(fmt.Sprintf("portfind: %d listening ports", len(res.Entries)))
 
 	for i, s := range a.slots {

@@ -116,7 +116,7 @@ go install github.com/rpratap2111/portfind/cmd/portfind@latest
 portfind --update
 ```
 
-This checks GitHub for a newer release and, if there is one, downloads it, verifies its checksum, and replaces both `portfind.exe` and `portfind-tray.exe`. If the tray icon is running, quit it and open it again afterwards. Re-running the install command also updates.
+This checks GitHub for a newer release and, if there is one, downloads it, verifies its checksum, and replaces both `portfind.exe` and `portfind-tray.exe`. If the tray icon is running, quit it and open it again afterwards. Or let the tray do it: when an update is out, its menu shows **Restart to update**. Re-running the install command also updates.
 
 #### Uninstall
 
@@ -284,7 +284,7 @@ Before killing, portfind pins the process so its PID can't be reused (a process 
 Press `Win`, search **portfind** and open it (or run `portfind-tray`). An icon appears in the notification area. On Windows 11 it may start in the `^` overflow; drag it onto the taskbar to keep it visible. Click the icon and portfind rescans, then lists the ports you're most likely to want back, dev servers first. Each port opens a submenu with its details and a separate **Kill** item, so a stray click on a port never kills anything:
 
 ```
-portfind · 40 listening ports
+portfind v1.3.0 · 40 listening ports
 ──────────────────────────────────────────────
 python — :8899 (git-only-repo)        LOW    ▸ ┌──────────────────────────────────┐
 mystery-daemon — :9300 (fixtures)     MEDIUM ▸ │ PID 12528 · running 4s · LOW risk │
@@ -292,6 +292,8 @@ mystery-daemon — :9300 (fixtures)     MEDIUM ▸ │ PID 12528 · running 4s �
 20 system or elevated ports not shown          │ "…\python.exe" -m http.server 8899│
 …and 8 more (Open Terminal UI to see all)      │ Kill python                       │
 ──────────────────────────────────────────────  └──────────────────────────────────┘
+portfind v1.4.0 is available                     (only when there's an update)
+Restart to update
 Open Terminal UI
 ✓ Start with Windows
 Quit
@@ -302,6 +304,7 @@ Quit
 - Ports that can never be killed (core Windows processes) or that Windows won't let you touch without admin rights aren't listed. The menu says how many were left out.
 - If a port-fight is in progress, a `⚡` line says so.
 - **Open Terminal UI** opens `portfind` in a new terminal window.
+- **Restart to update** appears when a newer release is out. The tray checks GitHub shortly after it starts and every 6 hours, and lets you know once with a notification. One click downloads the new version, verifies its checksum, replaces both programs and restarts the tray.
 - **Start with Windows** starts the tray icon when you sign in. Click it again to turn it off, or use Task Manager's Startup apps. It needs no admin rights, and the uninstaller turns it off.
 
 ---

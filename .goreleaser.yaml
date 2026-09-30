@@ -46,7 +46,7 @@ builds:
     goarch: [amd64, arm64]
     flags: [-trimpath]
     ldflags:
-      - -s -w -H=windowsgui # GUI subsystem: no console window behind the tray icon
+      - -s -w -H=windowsgui -X main.version={{ .Version }} # GUI subsystem: no console window behind the tray icon
 
   - id: portfind-linux
     main: ./cmd/portfind

@@ -143,6 +143,19 @@ func (u *Updater) Run() (Result, error) {
 	return res, nil
 }
 
+// Check reports the newest release tag and whether it is newer than the
+// running version, without downloading anything.
+func (u *Updater) Check() (latest string, newer bool, err error) {
+	if u.Current == "dev" {
+		return "", false, errors.New("development builds don't check for updates")
+	}
+	latest, err = u.Latest()
+	if err != nil {
+		return "", false, err
+	}
+	return latest, isNewer(latest, u.Current), nil
+}
+
 // Latest returns the newest release tag, e.g. "v1.2.0". It follows
 // /releases/latest's redirect rather than calling the GitHub API, which is
 // rate-limited for anonymous callers.
