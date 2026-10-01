@@ -11,7 +11,7 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest] # the scanner and kill code are OS-specific
+        os: [windows-latest, ubuntu-latest, macos-latest] # the scanner and kill code are OS-specific
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

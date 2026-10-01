@@ -5,7 +5,7 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/rpratap2111/portfind/releases)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6?style=for-the-badge)](https://github.com/rpratap2111/portfind/releases)
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
 
 ### Topic Tags
@@ -17,6 +17,7 @@
 [![SQLite](https://img.shields.io/badge/SQLite-modernc.org%2Fsqlite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://modernc.org/sqlite)
 [![Windows API](https://img.shields.io/badge/Windows_API-GetExtendedTcpTable-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#)
 [![Linux pidfd](https://img.shields.io/badge/Linux-pidfd_%26_procfs-FCC624?style=for-the-badge&logo=linux&logoColor=black)](#)
+[![macOS libproc](https://img.shields.io/badge/macOS-libproc_%26_sysctl-000000?style=for-the-badge&logo=apple&logoColor=white)](#)
 [![PowerShell & Bash](https://img.shields.io/badge/Scripts-PowerShell_%26_Bash-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](#)
 
 </div>
@@ -25,17 +26,17 @@
 
 ## Brief Summary
 
-**portfind** finds the process holding a network port on Windows or Linux and lets you kill it safely. But unlike traditional port killers, before you press kill, it reveals **which project** that process belongs to, its full command line, how long it has been running, and its safety risk level.
+**portfind** finds the process holding a network port on Windows, Linux or macOS and lets you kill it safely. But unlike traditional port killers, before you press kill, it reveals **which project** that process belongs to, its full command line, how long it has been running, and its safety risk level.
 
 It comes as:
-- An interactive **Terminal UI** (`portfind`) on both Windows and Linux.
+- An interactive **Terminal UI** (`portfind`) on Windows, Linux and macOS.
 - A discreet **Notification-Area Tray Icon** (`portfind-tray`) on Windows with quick actions.
 - A zero-overhead **JSON CLI mode** (`portfind --json`) for automated developer scripts.
 
 ### Core Highlights:
 - **Project Awareness:** Scans `package.json`, `Cargo.toml`, `go.mod`, or Git repositories to tell you which codebase spawned the process.
 - **Risk Tiers:** Categorizes processes as **LOW**, **MEDIUM**, or **HIGH** risk so you don't accidentally shut down a database or an active SSH session.
-- **Safe Termination:** Pins process handles (`pidfd` on Linux / process handles on Windows) before stopping them, preventing accidental kills if a PID is recycled.
+- **Safe Termination:** Pins the process (`pidfd` on Linux / process handles on Windows / PID plus start time on macOS) before stopping it, preventing accidental kills if a PID is recycled.
 - **Port-Fight Detection:** Detects when a supervisor (like `nodemon`) keeps reviving a process on the same port and warns you before you enter an endless kill loop.
 - **Persistent History:** SQLite-backed audit trail of all freed ports and terminated processes.
 
@@ -173,6 +174,24 @@ Or download `portfind_linux_amd64.tar.gz` / `portfind_linux_arm64.tar.gz` from t
 
 ---
 
+### macOS
+
+Requires macOS 12 (Monterey) or later, on Apple silicon or Intel. No root needed.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.sh | sh
+```
+
+It is the same installer as on Linux: it downloads the latest release for your CPU, **verifies its SHA-256 checksum** and puts `portfind` in `~/.local/bin`. If that folder isn't on your PATH yet, it adds it in `~/.zshrc` (and `~/.bash_profile` if you use bash). Open a new terminal and run `portfind`, or paste the `export PATH=…` line the installer prints to use it straight away. It works under `sudo` too, which lets it see and stop other users' processes.
+
+Updating, the installer options and uninstalling work exactly as on Linux (see the block above). The uninstaller keeps your history in `~/Library/Caches/portfind` unless you set `PORTFIND_PURGE_HISTORY=1`.
+
+Or download `portfind_darwin_arm64.tar.gz` (Apple silicon) / `portfind_darwin_amd64.tar.gz` (Intel) from the [latest release](https://github.com/rpratap2111/portfind/releases/latest) and extract `portfind` anywhere on your PATH, or use `go install` (see *With Go* above).
+
+> **Gatekeeper:** the binaries aren't notarized, so macOS blocks a *browser-downloaded* `portfind` the first time ("Apple could not verify…"). Clear the download flag with `xattr -d com.apple.quarantine ./portfind`. The installer downloads with `curl`, which doesn't set the flag, so it avoids this.
+
+---
+
 ## Why portfind?
 
 Port killers such as [pik](https://github.com/jacek-kurlit/pik), pview, PortSlayer and portndock are built around one question: *which process is on port 3000?* They show you OS-level facts (PID, process name) and let you kill it. That's rarely enough on its own. `node` on :3000 could be the app you forgot to stop, or a teammate's service you're about to take down. portfind is built around a different question, **"what exactly am I about to kill?"**, and adds the context you need to answer it:
@@ -272,10 +291,11 @@ portfind --json | jq '.ports[] | select(.risk == "LOW") | {port, process, projec
 | **MEDIUM** | Anything unrecognized, and system services | Type the process name |
 | **HIGH** | Databases (`postgres`, `mysql`, `mongod`, `redis-server`, `sqlservr`) and anything started over SSH | Type the process name |
 
-Before killing, portfind pins the process so its PID can't be reused (a process handle on Windows, a pidfd on Linux), checks that it's still the same executable and still listening on that port, and only then stops it and waits for it to exit.
+Before killing, portfind pins the process so a reused PID can't be hit (a process handle on Windows, a pidfd on Linux, the PID together with its start time on macOS), checks that it's still the same executable and still listening on that port, and only then stops it and waits for it to exit.
 
 - **Windows:** the process is terminated. Core processes such as `lsass`, `csrss`, `wininit`, `services` and `svchost` are always refused, since killing them crashes or reboots Windows.
 - **Linux:** the process gets `SIGTERM` so it can shut down cleanly, then `SIGKILL` if it's still running after 5 seconds. `systemd`, `init`, `sshd` (you could lock yourself out of a remote machine) and `systemd-resolved` (DNS) are always refused; use `systemctl` for services.
+- **macOS:** the same `SIGTERM`, then `SIGKILL` after 5 seconds. `launchd`, `kernel_task`, `WindowServer` and `loginwindow` (killing either ends your login session), `sshd` and `mDNSResponder` (DNS) are always refused; use `launchctl` for services.
 
 ---
 
@@ -316,15 +336,16 @@ portfind logs every process that leaves a port, and whether portfind killed it. 
 History is stored in SQLite, at:
 - **Windows:** `%LOCALAPPDATA%\portfind\history.db`
 - **Linux:** `~/.cache/portfind/history.db`
+- **macOS:** `~/Library/Caches/portfind/history.db`
 
 ---
 
 ## Limitations
 
-- **Windows and Linux:** macOS isn't supported yet. The tray icon is Windows-only; on Linux use the terminal UI.
+- **Tray icon:** Windows-only. On Linux and macOS use the terminal UI.
 - **Other users' and elevated processes:**
   - On Windows, without admin rights portfind can't read the details (age, command line, project) of services and elevated processes, or kill them. They still appear, with a warning under `Ctrl+W`. Run portfind as administrator to manage them.
-  - On Linux, a normal user can't see which of *another user's* processes owns a port. The port still appears, as `(unknown)`, with a warning naming the owner (for example root). Run `sudo portfind` to see and manage those.
+  - On Linux and macOS, a normal user can't see which of *another user's* processes owns a port. The port still appears, as `(unknown)`, with a warning naming the owner (for example root). Run `sudo portfind` to see and manage those.
 - **Project detection** uses the process's *current* working directory, falling back to the folder of its executable. A process that changed directory after starting may be attributed to the wrong project.
 - **TCP listeners only;** UDP isn't shown.
 
@@ -341,7 +362,14 @@ go build -ldflags -H=windowsgui ./cmd/portfind-tray  # GUI build: no console win
 .\portfind-tray.exe
 ```
 
-Pure Go, no cgo: the SQLite driver is `modernc.org/sqlite`, and Windows is queried directly through its APIs (`GetExtendedTcpTable`, `NtQueryInformationProcess`, …) rather than by parsing `netstat`.
+On Linux and macOS:
+
+```sh
+go build ./cmd/portfind
+./portfind
+```
+
+Pure Go, no cgo: the SQLite driver is `modernc.org/sqlite`, and each OS is queried directly through its own interfaces rather than by parsing `netstat` or `lsof`: `GetExtendedTcpTable`, `NtQueryInformationProcess`, … on Windows, `/proc` on Linux, and `libproc` plus `sysctl` on macOS. So every target cross-compiles from any machine, e.g. `GOOS=darwin GOARCH=arm64 go build ./cmd/portfind`.
 
 ```powershell
 go test ./...
@@ -349,7 +377,7 @@ go test ./...
 
 ### Releasing
 
-Push a version tag. GitHub Actions runs the tests, then [GoReleaser](https://goreleaser.com) builds the Windows zips and `checksums.txt` and publishes the release:
+Push a version tag. GitHub Actions runs the tests, then [GoReleaser](https://goreleaser.com) builds the Windows zips, the Linux and macOS tarballs and `checksums.txt`, and publishes the release:
 
 ```powershell
 git tag v0.1.0

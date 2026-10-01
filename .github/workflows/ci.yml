@@ -32,3 +32,15 @@ jobs:
       - run: go test ./...
       - name: installer scripts parse under POSIX sh
         run: sh -n install.sh && sh -n uninstall.sh
+
+  test-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
+      - name: installer scripts parse under macOS sh
+        run: sh -n install.sh && sh -n uninstall.sh

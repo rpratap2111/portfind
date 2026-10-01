@@ -1,11 +1,12 @@
 #!/bin/sh
-# portfind installer for Linux. No root needed.
+# portfind installer for Linux and macOS. No root needed.
 #
 #   curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.sh | sh
 #
 # It downloads the release archive for your CPU, verifies its SHA-256 against
 # the release's checksums.txt, installs `portfind` to ~/.local/bin and, if
-# that isn't on your PATH yet, adds it in ~/.bashrc / ~/.zshrc.
+# that isn't on your PATH yet, adds it in ~/.bashrc / ~/.zshrc (on macOS:
+# ~/.zshrc / ~/.bash_profile).
 #
 # Options (environment variables):
 #   PORTFIND_VERSION=v1.1.0          a specific release instead of the latest
@@ -63,7 +64,8 @@ main() {
 
 	case "$(uname -s)" in
 	Linux) os=linux ;;
-	*) err "this installer is for Linux; on Windows use install.ps1 (see the README)" ;;
+	Darwin) os=darwin ;;
+	*) err "this installer is for Linux and macOS; on Windows use install.ps1 (see the README)" ;;
 	esac
 	case "$(uname -m)" in
 	x86_64 | amd64) arch=amd64 ;;
@@ -109,11 +111,19 @@ main() {
 		printf 'Run it with:  portfind\n'
 		;;
 	*)
+		# The default shell's startup file is created if missing; the other
+		# shell's is only touched if the user has one. macOS defaults to zsh,
+		# and its terminals start bash as a login shell, which reads
+		# ~/.bash_profile rather than ~/.bashrc.
+		if [ "$os" = darwin ]; then
+			default_rc=$HOME/.zshrc other_rc=$HOME/.bash_profile
+		else
+			default_rc=$HOME/.bashrc other_rc=$HOME/.zshrc
+		fi
 		changed=""
 		if [ "${PORTFIND_NO_MODIFY_PATH:-}" != 1 ]; then
-			for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
-				# Only shells the user has; bash's file is created if missing.
-				if [ -f "$rc" ] || [ "$rc" = "$HOME/.bashrc" ]; then
+			for rc in "$default_rc" "$other_rc"; do
+				if [ -f "$rc" ] || [ "$rc" = "$default_rc" ]; then
 					f=$(add_to_path "$dir" "$rc")
 					[ -n "$f" ] && changed="$changed ~/${f#"$HOME"/}"
 				fi
