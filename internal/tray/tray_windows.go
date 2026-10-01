@@ -5,6 +5,7 @@ package tray
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/getlantern/systray"
@@ -45,6 +46,8 @@ type app struct {
 	// Updates (see updates_windows.go).
 	updateInfo, updateNow *systray.MenuItem // "vX is available" / "Restart to update"
 	latest                string            // newer release found by the last check
+	lastCheck             atomic.Int64      // unix time of the last successful check
+	checking              atomic.Bool       // a check is in flight
 	updating              bool
 	restart               *RestartError // set when an update installed; Run returns it
 }
@@ -224,6 +227,7 @@ func (a *app) refresh() {
 	}
 	setInfo(a.fight, label != "", escapeMenuText(label))
 	a.syncStartupCheck()
+	a.checkIfStale()
 }
 
 // syncStartupCheck makes the checkbox match the registry, which the user can

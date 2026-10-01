@@ -324,7 +324,7 @@ Quit
 - Ports that can never be killed (core Windows processes) or that Windows won't let you touch without admin rights aren't listed. The menu says how many were left out.
 - If a port-fight is in progress, a `⚡` line says so.
 - **Open Terminal UI** opens `portfind` in a new terminal window.
-- **Restart to update** appears when a newer release is out. The tray checks GitHub shortly after it starts and every 6 hours, and lets you know once with a notification. One click downloads the new version, verifies its checksum, replaces both programs and restarts the tray.
+- **Restart to update** appears when a newer release is out. The tray checks GitHub shortly after it starts, every 6 hours, and when you open the menu (at most once every 15 minutes), and lets you know once with a notification. One click downloads the new version, verifies its checksum, replaces both programs and restarts the tray.
 - **Start with Windows** starts the tray icon when you sign in. Click it again to turn it off, or use Task Manager's Startup apps. It needs no admin rights, and the uninstaller turns it off.
 
 ---

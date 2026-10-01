@@ -17,6 +17,10 @@ import (
 const (
 	firstUpdateCheck = 30 * time.Second // let sign-in settle first
 	updateCheckEvery = 6 * time.Hour
+	// Opening the menu also triggers a check if the last successful one is
+	// older than this, so a new release shows up soon after it's published
+	// rather than up to updateCheckEvery later.
+	recheckOnOpen = 15 * time.Minute
 )
 
 // RestartError is returned by Run after "Restart to update" installed a new
@@ -65,7 +69,24 @@ func (a *app) checkForUpdates() {
 	}
 }
 
+// checkIfStale starts a background check when the menu is opened and the last
+// successful check is older than recheckOnOpen. It never blocks the menu; the
+// result shows as a notification and in the menu the next time it opens.
+func (a *app) checkIfStale() {
+	if a.opts.Version == "dev" || a.opts.Version == "" {
+		return
+	}
+	if time.Since(time.Unix(a.lastCheck.Load(), 0)) >= recheckOnOpen {
+		go a.checkOnce()
+	}
+}
+
 func (a *app) checkOnce() {
+	if !a.checking.CompareAndSwap(false, true) {
+		return // a check is already in flight
+	}
+	defer a.checking.Store(false)
+
 	u, err := update.New(a.opts.Version)
 	if err != nil {
 		a.showUpdateProblem(err)
@@ -78,6 +99,7 @@ func (a *app) checkOnce() {
 		a.showUpdateProblem(err)
 		return
 	}
+	a.lastCheck.Store(time.Now().Unix())
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
