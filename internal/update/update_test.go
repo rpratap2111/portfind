@@ -65,7 +65,9 @@ func TestAssetName(t *testing.T) {
 		{"linux", "amd64", "portfind_linux_amd64.tar.gz", true},
 		{"linux", "arm64", "portfind_linux_arm64.tar.gz", true},
 		{"linux", "386", "", false},
-		{"darwin", "arm64", "", false},
+		{"darwin", "amd64", "portfind_darwin_amd64.tar.gz", true},
+		{"darwin", "arm64", "portfind_darwin_arm64.tar.gz", true},
+		{"freebsd", "amd64", "", false},
 	}
 	for _, tt := range tests {
 		got, err := assetName(tt.goos, tt.goarch)

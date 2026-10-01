@@ -1,18 +1,23 @@
 #!/bin/sh
-# portfind uninstaller for Linux.
+# portfind uninstaller for Linux and macOS.
 #
 #   curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/uninstall.sh | sh
 #
-# Removes the portfind binary and the PATH lines install.sh added to
-# ~/.bashrc / ~/.zshrc. Your kill history (~/.cache/portfind) is kept
-# unless you set PORTFIND_PURGE_HISTORY=1. If you installed to a custom
-# directory, set PORTFIND_INSTALL_DIR to it.
+# Removes the portfind binary and the PATH lines install.sh added to your
+# shell startup files. Your kill history (~/.cache/portfind, or
+# ~/Library/Caches/portfind on macOS) is kept unless you set
+# PORTFIND_PURGE_HISTORY=1. If you installed to a custom directory, set
+# PORTFIND_INSTALL_DIR to it.
 
 set -eu
 
 main() {
 	dir=${PORTFIND_INSTALL_DIR:-$HOME/.local/bin}
-	data=${XDG_CACHE_HOME:-$HOME/.cache}/portfind
+	if [ "$(uname -s)" = Darwin ]; then
+		data=$HOME/Library/Caches/portfind
+	else
+		data=${XDG_CACHE_HOME:-$HOME/.cache}/portfind
+	fi
 
 	if [ -f "$dir/portfind" ]; then
 		rm -f "$dir/portfind"
@@ -21,7 +26,7 @@ main() {
 		printf 'No portfind found in %s\n' "$dir"
 	fi
 
-	for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+	for rc in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.bash_profile"; do
 		if [ -f "$rc" ] && grep -q '# >>> portfind >>>' "$rc"; then
 			# Drop the marked block and the blank line install.sh put before it.
 			tmp=$(mktemp)

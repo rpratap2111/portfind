@@ -226,8 +226,8 @@ func assetName(goos, goarch string) (string, error) {
 	switch goos {
 	case "windows":
 		return "portfind_windows_" + goarch + ".zip", nil
-	case "linux":
-		return "portfind_linux_" + goarch + ".tar.gz", nil
+	case "linux", "darwin":
+		return "portfind_" + goos + "_" + goarch + ".tar.gz", nil
 	}
 	return "", fmt.Errorf("no release builds for %s/%s", goos, goarch)
 }

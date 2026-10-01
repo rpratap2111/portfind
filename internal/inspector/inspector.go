@@ -1,13 +1,14 @@
 // Package inspector enumerates processes that are listening on network ports.
 //
 // The PortInspector interface is OS-agnostic; each platform provides its own
-// implementation behind a build tag (see windows.go). Parsing and helper logic
-// that does not touch OS APIs lives in untagged files so it can be unit-tested
-// on any platform.
+// implementation behind a build tag (see windows.go, linux.go and darwin.go).
+// Parsing and helper logic that does not touch OS APIs lives in untagged files
+// so it can be unit-tested on any platform.
 package inspector
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -74,4 +75,12 @@ func FormatAge(sec int64) string {
 	default:
 		return fmt.Sprintf("%dd%dh", sec/86400, sec%86400/3600)
 	}
+}
+
+// uidName describes a user ID for messages, e.g. "root" or "uid 1001".
+func uidName(uid int) string {
+	if uid == 0 {
+		return "root"
+	}
+	return "uid " + strconv.Itoa(uid)
 }

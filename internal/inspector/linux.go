@@ -215,14 +215,6 @@ func ProcessName(pid int) (string, error) {
 	return st.Comm, nil
 }
 
-// uidName describes a user ID for messages, e.g. "root" or "uid 1001".
-func uidName(uid int) string {
-	if uid == 0 {
-		return "root"
-	}
-	return "uid " + strconv.Itoa(uid)
-}
-
 // ProcessState returns the state letter from /proc/<pid>/stat ('Z' for a
 // zombie that has exited but not been reaped).
 func ProcessState(pid int) (byte, error) {

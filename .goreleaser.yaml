@@ -25,7 +25,7 @@ before:
 
 builds:
   # Built separately per OS so each OS gets its own archive layout: Windows
-  # zips carry two programs, Linux archives one.
+  # zips carry two programs, Linux and macOS archives one.
   - id: portfind-windows
     main: ./cmd/portfind
     binary: portfind
@@ -59,6 +59,17 @@ builds:
     ldflags:
       - -s -w -X main.version={{ .Version }}
 
+  - id: portfind-darwin
+    main: ./cmd/portfind
+    binary: portfind
+    env:
+      - CGO_ENABLED=0 # libproc is bound without cgo, so this cross-compiles from Linux too
+    goos: [darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
 # No version in the archive names, so these URLs always serve the newest
 # release, e.g. .../releases/latest/download/portfind_windows_amd64.zip.
 # install.ps1 and install.sh depend on these names.
@@ -73,6 +84,14 @@ archives:
 
   - id: linux
     ids: [portfind-linux]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE
+
+  - id: darwin
+    ids: [portfind-darwin]
     formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     files:
@@ -97,11 +116,11 @@ release:
     irm https://raw.githubusercontent.com/rpratap2111/portfind/main/install.ps1 | iex
     ```
 
-    Linux:
+    Linux and macOS:
 
     ```sh
     curl -fsSL https://raw.githubusercontent.com/rpratap2111/portfind/main/install.sh | sh
     ```
 
-    Or download the archive for your OS and CPU below (`amd64` for most machines, `arm64` for ARM).
+    Or download the archive for your OS and CPU below (`amd64` for most machines, `arm64` for ARM, including Apple silicon Macs; macOS archives are named `darwin`).
     On Windows, run `portfind.exe` (terminal UI) or `portfind-tray.exe` (notification-area icon), and keep them in the same folder. The Windows binaries are not code-signed, so SmartScreen may warn on first run: click **More info → Run anyway**.
