@@ -25,7 +25,17 @@ type PortEntry struct {
 
 	ParentPID     int    // 0 if unknown
 	ParentProcess string // parent's display name, e.g. "sshd"; empty if unknown
+
+	// Set when the port is published by a Docker container. Process is then
+	// the container's name (what the user sees and confirms), and killing
+	// the entry stops that container rather than the Docker process (PID)
+	// that holds the port for it.
+	ContainerID string
+	Image       string // e.g. "postgres:16"
 }
+
+// IsContainer reports whether the port belongs to a Docker container.
+func (e PortEntry) IsContainer() bool { return e.ContainerID != "" }
 
 // ScanResult is the output of a scan. Warnings holds non-fatal, per-process
 // failures (e.g. access denied when opening an elevated process). The affected

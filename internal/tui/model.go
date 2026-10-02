@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -68,9 +69,15 @@ type Model struct {
 	hist        historyStore
 	histErr     error
 	killedPIDs  map[int]bool    // killed by portfind, not yet seen gone by a scan
+	killedRows  map[rowKey]bool // containers stopped by portfind, ditto
 	fights      []history.Fight // port fights in the current window
 	historyRows []history.Event // loaded while the history view is open
 	showHistory bool
+
+	// Update notice. updateCheck is nil when checks are off (dev builds).
+	updateCheck     UpdateCheck
+	updateAvailable string // e.g. "v1.5.0"; empty if up to date or unknown
+	updateErr       error  // why the check failed; listed in the warnings view
 
 	warnings     []error // from the latest successful scan
 	scanErr      error   // last scan failure; stale data stays on screen
@@ -102,9 +109,33 @@ func New(ins inspector.PortInspector, store *history.Store, storeErr error) Mode
 	return m
 }
 
-// Init starts the auto-refresh loop.
+// UpdateCheck reports the newest release and whether it is newer than the
+// running version.
+type UpdateCheck func() (latest string, newer bool, err error)
+
+// WithUpdateCheck makes the TUI look for a newer release once, in the
+// background, when it starts.
+func (m Model) WithUpdateCheck(check UpdateCheck) Model {
+	m.updateCheck = check
+	return m
+}
+
+type updateCheckedMsg struct {
+	latest string
+	newer  bool
+	err    error
+}
+
+// Init starts the auto-refresh loop and, if enabled, the update check.
 func (m Model) Init() tea.Cmd {
-	return tickCmd(m.tickID)
+	if m.updateCheck == nil {
+		return tickCmd(m.tickID)
+	}
+	check := m.updateCheck
+	return tea.Batch(tickCmd(m.tickID), func() tea.Msg {
+		latest, newer, err := check()
+		return updateCheckedMsg{latest: latest, newer: newer, err: err}
+	})
 }
 
 type tickMsg struct{ id int }
@@ -154,7 +185,7 @@ func (m *Model) applyScan(res scan.Result, err error, at time.Time) {
 	m.lastScan = at
 
 	prev, hadSelection := m.selected()
-	m.visible = filterEntries(m.ports, m.searchQuery)
+	m.visible = sectioned(filterEntries(m.ports, m.searchQuery))
 	if hadSelection {
 		for i, e := range m.visible {
 			if keyOf(e) == keyOf(prev) {
@@ -193,11 +224,12 @@ func (m *Model) recordDepartures(next []inspector.PortEntry, at time.Time) {
 	for _, e := range departures(m.ports, next) {
 		err := m.hist.Record(history.Event{
 			At: at, Port: e.Port, PID: e.PID, Process: e.Process, Project: e.ProjectName,
-			KilledViaPortfind: m.killedPIDs[e.PID],
+			KilledViaPortfind: m.killedPIDs[e.PID] || m.killedRows[keyOf(e)],
 		})
 		if err != nil {
 			m.histErr = err
 		}
+		delete(m.killedRows, keyOf(e))
 	}
 	// Forget killed PIDs once they hold no ports, before Windows can reuse
 	// the number for an unrelated process.
@@ -243,6 +275,13 @@ func (m *Model) loadHistoryRows() {
 	m.historyRows = rows
 }
 
+func (m *Model) markKilledRow(k rowKey) {
+	if m.killedRows == nil {
+		m.killedRows = make(map[rowKey]bool)
+	}
+	m.killedRows[k] = true
+}
+
 func (m *Model) markKilled(pid int) {
 	if m.killedPIDs == nil {
 		m.killedPIDs = make(map[int]bool)
@@ -253,7 +292,7 @@ func (m *Model) markKilled(pid int) {
 // setQuery re-filters and jumps to the best (first) match, as fzf does.
 func (m *Model) setQuery(q string) {
 	m.searchQuery = q
-	m.visible = filterEntries(m.ports, q)
+	m.visible = sectioned(filterEntries(m.ports, q))
 	m.selectedIndex = 0
 	m.offset = 0
 	m.clampSelection()
@@ -279,16 +318,59 @@ func (m *Model) clampSelection() {
 	if m.selectedIndex < 0 {
 		m.selectedIndex = 0
 	}
+	// offset counts table rows, which include the section headings.
 	rows := m.tableRows()
-	if m.selectedIndex < m.offset {
-		m.offset = m.selectedIndex
+	layout := m.tableLayout()
+	sel := 0
+	for i, r := range layout {
+		if r.entry == m.selectedIndex {
+			sel = i
+			break
+		}
 	}
-	if m.selectedIndex >= m.offset+rows {
-		m.offset = m.selectedIndex - rows + 1
+	top := sel
+	if sel > 0 && layout[sel-1].entry < 0 {
+		top = sel - 1 // keep a section's heading on screen with its first row
 	}
-	if maxOff := len(m.visible) - rows; m.offset > maxOff {
+	if top < m.offset {
+		m.offset = top
+	}
+	if sel >= m.offset+rows {
+		m.offset = sel - rows + 1
+	}
+	if maxOff := len(layout) - rows; m.offset > maxOff {
 		m.offset = max(maxOff, 0)
 	}
+}
+
+// tableRow is one line of the port table: a section heading (entry < 0) or
+// the entry at that index of visible.
+type tableRow struct {
+	heading string
+	entry   int
+}
+
+// tableLayout lays visible out as table rows. When containers are present
+// the list is split into headed sections; otherwise it is the plain list.
+func (m Model) tableLayout() []tableRow {
+	containers := 0
+	for _, e := range m.visible {
+		if e.IsContainer() {
+			containers++
+		}
+	}
+	processes := len(m.visible) - containers
+	layout := make([]tableRow, 0, len(m.visible)+2)
+	for i, e := range m.visible { // visible is already ordered processes, then containers
+		if i == 0 && containers > 0 && processes > 0 {
+			layout = append(layout, tableRow{heading: fmt.Sprintf("PROCESSES · %d", processes), entry: -1})
+		}
+		if e.IsContainer() && (i == 0 || !m.visible[i-1].IsContainer()) {
+			layout = append(layout, tableRow{heading: fmt.Sprintf("DOCKER CONTAINERS · %d", containers), entry: -1})
+		}
+		layout = append(layout, tableRow{entry: i})
+	}
+	return layout
 }
 
 func (m *Model) setStatus(kind statusKind, msg string) {

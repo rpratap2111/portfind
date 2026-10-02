@@ -33,6 +33,21 @@ var lowRiskNames = []string{"node", "python", "ruby", "java", "dlv"}
 // arbitrary name and runs it as a child of go.exe, so the parent is the tell.
 var lowRiskParents = []string{"go"}
 
+// highRiskImages are matched as substrings of a container's image and name.
+// Images are named after the product ("mongo", "redis"), not the server
+// binary ("mongod", "redis-server").
+var highRiskImages = []string{"postgres", "mysql", "mariadb", "mongo", "redis", "mssql", "sqlserver", "elasticsearch"}
+
+// ClassifyContainer returns the tier for a Docker container. Databases are
+// HIGH; everything else is MEDIUM, never LOW, because stopping a container
+// takes down everything in it and always deserves a typed confirmation.
+func ClassifyContainer(name, image string) string {
+	if containsAny(strings.ToLower(name+" "+image), highRiskImages) {
+		return High
+	}
+	return Medium
+}
+
 // Classify returns the tier for a process given its name and its parent's
 // name (either may be empty when unknown). HIGH rules are checked first, so a
 // dev server started over SSH is still HIGH.
@@ -52,7 +67,12 @@ func Classify(process, parent string) string {
 // Annotate sets RiskTier on each entry in place.
 func Annotate(entries []inspector.PortEntry) {
 	for i := range entries {
-		entries[i].RiskTier = Classify(entries[i].Process, entries[i].ParentProcess)
+		e := &entries[i]
+		if e.IsContainer() {
+			e.RiskTier = ClassifyContainer(e.Process, e.Image)
+			continue
+		}
+		e.RiskTier = Classify(e.Process, e.ParentProcess)
 	}
 }
 

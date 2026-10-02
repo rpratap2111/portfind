@@ -226,7 +226,7 @@ Run `portfind`. It opens on every listening TCP port, refreshes every 2 seconds 
 
 | Key | Action |
 |---|---|
-| *type anything* | Filter by port, process or project (fuzzy: `dwa` matches `demo-web-app`; `node 30` needs both) |
+| *type anything* | Filter by port, process or project (fuzzy: `dwa` matches `demo-web-app`; `node 30` needs both). `docker` shows only containers |
 | `↑` `↓` | Move the selection |
 | `Enter` | Kill the selected process (asks for confirmation) |
 | `Tab` | History of processes that left their ports |
@@ -236,6 +236,8 @@ Run `portfind`. It opens on every listening TCP port, refreshes every 2 seconds 
 | `Ctrl+C` | Quit |
 
 Every key you can type goes into the search box, so all commands live on non-typing keys.
+
+When a newer release is out, the status line says `v1.5.0 available: run portfind --update`. The check is one background request to GitHub per launch and never delays startup; set `PORTFIND_NO_UPDATE_CHECK=1` to turn it off.
 
 ---
 
@@ -255,14 +257,16 @@ Every key you can type goes into the search box, so all commands live on non-typ
       "risk": "LOW",
       "command": "\"C:\\...\\python.exe\" -m http.server 8899",
       "parent_pid": 5920,
-      "parent_process": "pwsh"
+      "parent_process": "pwsh",
+      "container_id": null,
+      "image": null
     }
   ],
   "warnings": ["port 135 pid 1984 (svchost): OpenProcess: Access is denied."]
 }
 ```
 
-`warnings` lists processes the OS wouldn't let portfind fully inspect; their entries still appear, with `null`s. If the scan itself fails, portfind exits with code 1 and prints the error to stderr.
+`warnings` lists processes the OS wouldn't let portfind fully inspect; their entries still appear, with `null`s. For a port published by a Docker container, `process` is the container's name and `container_id` and `image` are set (see [Docker Containers](#docker-containers)). If the scan itself fails, portfind exits with code 1 and prints the error to stderr.
 
 #### PowerShell:
 
@@ -296,6 +300,31 @@ Before killing, portfind pins the process so a reused PID can't be hit (a proces
 - **Windows:** the process is terminated. Core processes such as `lsass`, `csrss`, `wininit`, `services` and `svchost` are always refused, since killing them crashes or reboots Windows.
 - **Linux:** the process gets `SIGTERM` so it can shut down cleanly, then `SIGKILL` if it's still running after 5 seconds. `systemd`, `init`, `sshd` (you could lock yourself out of a remote machine) and `systemd-resolved` (DNS) are always refused; use `systemctl` for services.
 - **macOS:** the same `SIGTERM`, then `SIGKILL` after 5 seconds. `launchd`, `kernel_task`, `WindowServer` and `loginwindow` (killing either ends your login session), `sshd` and `mDNSResponder` (DNS) are always refused; use `launchctl` for services.
+
+---
+
+### Docker Containers
+
+A port published by a container normally shows up as Docker's own process (`com.docker.backend`, `docker-proxy`), which tells you nothing, and killing that process would take down **all of Docker**. When a Docker engine is running, portfind asks it which container publishes each port and shows that instead:
+
+```
+PORT   PID     PROJECT  PROCESS      AGE   RISK    COMMAND
+PROCESSES · 2
+3001   12240   my-app   node         45m   LOW     "C:\nodejs\node.exe" server.js
+11434  8792    -        ollama       3h    MEDIUM  C:\...\ollama.exe serve
+DOCKER CONTAINERS · 2
+5432   docker  shop     shop-db-1    2h    HIGH    docker container · image postgres:16
+8080   docker  shop     shop-web-1   2h    MEDIUM  docker container · image nginx:1.27
+```
+
+- Containers are grouped in their own **DOCKER CONTAINERS** section below your ordinary processes; `↑`/`↓` moves through both. With no containers running, the list looks as it always did.
+- Type `docker` in the search to show only containers. Search also matches image names (`postgres`, `nginx`).
+- **PROCESS** is the container's name, **PROJECT** its Compose project, **AGE** how long it has been up (as `docker ps` reports it, so rounded).
+- **Kill stops that container** (like `docker stop`: `SIGTERM`, then `SIGKILL` after 5 seconds), never Docker itself. Just before stopping, portfind checks the container is still running and still publishes that port.
+- Containers always need the name typed to confirm. Database images (`postgres`, `mysql`, `mariadb`, `mongo`, `redis`, `mssql`, `elasticsearch`) are **HIGH**, everything else **MEDIUM**.
+- A container started by Compose or with a restart policy may come straight back; the port-fight hint will tell you. Use `docker compose down` or `docker update --restart=no` for those.
+
+portfind talks to the engine's local API directly (the named pipe on Windows, the socket on Linux and macOS, or `DOCKER_HOST`), so the `docker` command isn't needed. If Docker isn't installed or isn't running, nothing changes. On Linux you need access to the Docker socket (be in the `docker` group, or use `sudo portfind`).
 
 ---
 

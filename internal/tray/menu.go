@@ -24,7 +24,7 @@ const maxPortItems = 12
 // or Windows denied access (hidden), and how many didn't fit (overflow).
 func menuPorts(entries []inspector.PortEntry, limit int) (shown []inspector.PortEntry, hidden, overflow int) {
 	for _, e := range entries {
-		if kill.CheckAllowed(targetOf(e)) != nil {
+		if kill.CheckAllowed(kill.TargetOf(e)) != nil {
 			hidden++ // kernel or critical Windows process
 			continue
 		}
@@ -61,10 +61,6 @@ func targetRank(e inspector.PortEntry) int {
 	}
 }
 
-func targetOf(e inspector.PortEntry) kill.Target {
-	return kill.Target{PID: e.PID, Port: e.Port, Process: e.Process}
-}
-
 // menuLabel renders an entry as "node — :3000 (my-app)" with the risk tier
 // right-aligned (text after a tab goes in the menu's accelerator column).
 func menuLabel(e inspector.PortEntry) string {
@@ -91,6 +87,9 @@ func escapeMenuText(s string) string {
 // Kill item, so the user sees what they are about to kill before they can.
 func portDetails(e inspector.PortEntry) (pidLine, projectLine, commandLine string) {
 	pidLine = fmt.Sprintf("PID %d · running %s · %s risk", e.PID, inspector.FormatAge(e.AgeSeconds), e.RiskTier)
+	if e.IsContainer() {
+		pidLine = fmt.Sprintf("Docker container · running %s · %s risk", inspector.FormatAge(e.AgeSeconds), e.RiskTier)
+	}
 	projectLine = "No project detected"
 	if e.ProjectName != "" {
 		projectLine = "Project: " + e.ProjectName
@@ -102,6 +101,9 @@ func portDetails(e inspector.PortEntry) (pidLine, projectLine, commandLine strin
 // convention for "a confirmation follows".
 func killLabel(e inspector.PortEntry) string {
 	label := "Kill " + e.Process
+	if e.IsContainer() {
+		label = "Stop container " + e.Process
+	}
 	if e.RiskTier != risk.Low {
 		label += "…"
 	}
@@ -114,6 +116,18 @@ func confirmText(e inspector.PortEntry) string {
 	project := e.ProjectName
 	if project == "" {
 		project = "none detected"
+	}
+	if e.IsContainer() {
+		reason := "stopping a container stops everything running in it."
+		if e.RiskTier == risk.High {
+			reason = "this looks like a database container."
+		}
+		return fmt.Sprintf("Stop container %s on port %d?\n\n"+
+			"Project:\t%s\n"+
+			"Image:\t%s\n"+
+			"Running for:\t%s\n\n"+
+			"%s risk: %s",
+			e.Process, e.Port, project, e.Image, inspector.FormatAge(e.AgeSeconds), e.RiskTier, reason)
 	}
 	reason := "portfind doesn't recognise this process, or it is a Windows service."
 	if e.RiskTier == risk.High {
@@ -131,14 +145,23 @@ func confirmText(e inspector.PortEntry) string {
 // Notification texts. Windows caps the title at 63 and the body at 255
 // characters; notify truncates, these just keep them short.
 func killedTitle(e inspector.PortEntry) string {
+	if e.IsContainer() {
+		return fmt.Sprintf("Stopped container %s on :%d", e.Process, e.Port)
+	}
 	return fmt.Sprintf("Killed %s on :%d", e.Process, e.Port)
 }
 
 func killFailedTitle(e inspector.PortEntry) string {
+	if e.IsContainer() {
+		return fmt.Sprintf("Couldn't stop container %s on :%d", e.Process, e.Port)
+	}
 	return fmt.Sprintf("Couldn't kill %s on :%d", e.Process, e.Port)
 }
 
 func killedBody(e inspector.PortEntry) string {
+	if e.IsContainer() {
+		return "Image " + e.Image
+	}
 	if e.ProjectName == "" {
 		return fmt.Sprintf("PID %d", e.PID)
 	}

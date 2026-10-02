@@ -81,6 +81,14 @@ func run() error {
 	}
 
 	m := tui.New(inspector.New(), store, histErr)
+	// One background check per launch, for release builds; a failure (say,
+	// offline) only shows in the warnings view. PORTFIND_NO_UPDATE_CHECK=1
+	// turns it off.
+	if v := buildVersion(); v != "dev" && os.Getenv("PORTFIND_NO_UPDATE_CHECK") == "" {
+		if u, err := update.New(v); err == nil {
+			m = m.WithUpdateCheck(u.Check)
+		}
+	}
 	_, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
 	return err
 }

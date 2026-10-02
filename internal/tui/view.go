@@ -46,6 +46,8 @@ var (
 	searchLabel = base.Foreground(colAccent).Bold(true)
 	cursorStyle = base.Foreground(colAccent)
 	mutedStyle  = base.Foreground(colMuted)
+	// Section headings inside the table ("DOCKER CONTAINERS · 17").
+	sectionStyle = base.Foreground(colAccent).Bold(true)
 )
 
 // Vertical space used by everything except table rows: container border (2)
@@ -190,9 +192,8 @@ func (m Model) viewStatus(width int) string {
 	if m.searchQuery != "" {
 		parts = append(parts, fmt.Sprintf("%d matching", len(m.visible)))
 	}
-	if rows := m.tableRows(); len(m.visible) > rows && !m.showWarnings && !m.showHistory {
-		last := min(m.offset+rows, len(m.visible))
-		parts = append(parts, fmt.Sprintf("rows %d–%d", m.offset+1, last))
+	if first, last, scrolls := m.shownEntries(); scrolls && !m.showWarnings && !m.showHistory {
+		parts = append(parts, fmt.Sprintf("rows %d–%d", first, last))
 	}
 	if !m.lastScan.IsZero() {
 		parts = append(parts, "refreshed "+m.lastScan.Format("15:04:05"))
@@ -204,7 +205,29 @@ func (m Model) viewStatus(width int) string {
 	if m.histErr != nil {
 		s += mutedStyle.Render(" · ") + base.Foreground(colError).Render("history error (ctrl+w)")
 	}
+	if m.updateAvailable != "" {
+		s += mutedStyle.Render(" · ") + base.Foreground(colAccent).Render(m.updateAvailable+" available: run portfind --update")
+	}
 	return fit(s, width, colBg)
+}
+
+// shownEntries returns the 1-based range of entries currently on screen and
+// whether the table is taller than the screen.
+func (m Model) shownEntries() (first, last int, scrolls bool) {
+	rows := m.tableRows()
+	layout := m.tableLayout()
+	if len(layout) <= rows {
+		return 0, 0, false
+	}
+	for i := m.offset; i < min(m.offset+rows, len(layout)); i++ {
+		if e := layout[i].entry; e >= 0 {
+			if first == 0 {
+				first = e + 1
+			}
+			last = e + 1
+		}
+	}
+	return first, last, true
 }
 
 func (m Model) emptyMessage() string {
@@ -254,9 +277,14 @@ func (m Model) viewTable(rowW int) string {
 	lines := []string{row(header, rowW, colBg)}
 
 	rows := m.tableRows()
-	end := min(m.offset+rows, len(m.visible))
+	layout := m.tableLayout()
+	end := min(m.offset+rows, len(layout))
 	for i := m.offset; i < end; i++ {
-		lines = append(lines, renderEntry(m.visible[i], cols, rowW, i == m.selectedIndex))
+		if r := layout[i]; r.entry < 0 {
+			lines = append(lines, row([]string{sectionStyle.Render(r.heading)}, rowW, colBg))
+		} else {
+			lines = append(lines, renderEntry(m.visible[r.entry], cols, rowW, r.entry == m.selectedIndex))
+		}
 	}
 	for len(lines) < rows+1 { // fixed height keeps the footer from jumping
 		lines = append(lines, blankLine(rowW, colBg))
@@ -272,7 +300,7 @@ func renderEntry(e inspector.PortEntry, cols columns, rowW int, selected bool) s
 	st := lipgloss.NewStyle().Background(bg).Foreground(colFg)
 	cells := []string{
 		cell(st, strconv.Itoa(e.Port), cols.port),
-		cell(st, strconv.Itoa(e.PID), cols.pid),
+		cell(st, pidText(e), cols.pid),
 		cell(st.Foreground(colProject), orDash(e.ProjectName), cols.project),
 		cell(st, e.Process, cols.process),
 		cell(st, inspector.FormatAge(e.AgeSeconds), cols.age),
@@ -321,6 +349,9 @@ func (m Model) viewWarnings(rowW int) string {
 	}
 	for _, w := range m.warnings {
 		items = append(items, item{w.Error(), colMedium})
+	}
+	if m.updateErr != nil { // not counted as a warning: being offline is normal
+		items = append(items, item{"update check: " + m.updateErr.Error(), colMuted})
 	}
 
 	rows := m.tableRows()
@@ -438,6 +469,15 @@ func blankLine(width int, bg lipgloss.Color) string {
 	return lipgloss.NewStyle().Background(bg).Render(strings.Repeat(" ", width))
 }
 
+// pidText is the PID column. A container's row carries the PID of Docker's
+// own process, which would mislead, so it says "docker" instead.
+func pidText(e inspector.PortEntry) string {
+	if e.IsContainer() {
+		return "docker"
+	}
+	return strconv.Itoa(e.PID)
+}
+
 func riskColor(tier string) lipgloss.Color {
 	switch tier {
 	case risk.Low:
@@ -479,7 +519,11 @@ func (m Model) viewKillDialog(width int) string {
 	contentW := max(width-2-4, 10) // border, horizontal padding
 	line := func(s string) string { return fit(s, contentW, colBg) }
 
-	title := base.Bold(true).Render(fmt.Sprintf("Kill %s on :%d?", e.Process, e.Port))
+	question := fmt.Sprintf("Kill %s on :%d?", e.Process, e.Port)
+	if e.IsContainer() {
+		question = fmt.Sprintf("Stop container %s on :%d?", e.Process, e.Port)
+	}
+	title := base.Bold(true).Render(question)
 	typed := needsTypedConfirmation(e.RiskTier)
 	if !typed {
 		title += base.Render(" ") + base.Foreground(colAccent).Bold(true).Render("[y/N]")
@@ -490,7 +534,11 @@ func (m Model) viewKillDialog(width int) string {
 		project = base.Foreground(colProject).Render(e.ProjectName)
 	}
 	sep := mutedStyle.Render(" · ")
-	details := mutedStyle.Render(fmt.Sprintf("PID %d", e.PID)) + sep + project + sep +
+	who := fmt.Sprintf("PID %d", e.PID)
+	if e.IsContainer() {
+		who = "Docker container"
+	}
+	details := mutedStyle.Render(who) + sep + project + sep +
 		mutedStyle.Render("up "+inspector.FormatAge(e.AgeSeconds)) + sep +
 		base.Foreground(rc).Bold(true).Render(e.RiskTier)
 

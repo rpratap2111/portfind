@@ -35,10 +35,47 @@ func matchesAll(e inspector.PortEntry, terms []string) bool {
 
 // matches checks one lower-cased term. Ports match by substring, since a
 // fuzzy "36" matching port 3306 would be noise; names match fuzzily.
+// Containers also match the word "docker" and their image name.
 func matches(e inspector.PortEntry, term string) bool {
-	return strings.Contains(strconv.Itoa(e.Port), term) ||
+	if strings.Contains(strconv.Itoa(e.Port), term) ||
 		fuzzyMatch(strings.ToLower(e.Process), term) ||
-		fuzzyMatch(strings.ToLower(e.ProjectName), term)
+		fuzzyMatch(strings.ToLower(e.ProjectName), term) {
+		return true
+	}
+	return e.IsContainer() && (isDockerKeyword(term) || strings.Contains(strings.ToLower(e.Image), term))
+}
+
+// isDockerKeyword reports whether term is "docker" or the start of it
+// ("dock"). Two letters aren't enough: "do" is too common in names.
+func isDockerKeyword(term string) bool {
+	return len(term) >= 3 && strings.HasPrefix("docker", term)
+}
+
+// sectioned orders entries for display: ordinary processes first, then
+// Docker containers, each keeping its port order. The table draws them as two
+// headed sections (see tableLayout).
+func sectioned(entries []inspector.PortEntry) []inspector.PortEntry {
+	containers := 0
+	for _, e := range entries {
+		if e.IsContainer() {
+			containers++
+		}
+	}
+	if containers == 0 || containers == len(entries) {
+		return entries
+	}
+	out := make([]inspector.PortEntry, 0, len(entries))
+	for _, e := range entries {
+		if !e.IsContainer() {
+			out = append(out, e)
+		}
+	}
+	for _, e := range entries {
+		if e.IsContainer() {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // fuzzyMatch reports whether pattern's characters appear in s in order,

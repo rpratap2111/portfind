@@ -1,8 +1,10 @@
 // Package scan runs the full pipeline shared by every front-end: list
-// listening ports, then annotate each entry with its project and risk tier.
+// listening ports, then annotate each entry with its project, its Docker
+// container (if any) and its risk tier.
 package scan
 
 import (
+	"github.com/rpratap2111/portfind/internal/docker"
 	"github.com/rpratap2111/portfind/internal/inspector"
 	"github.com/rpratap2111/portfind/internal/provenance"
 	"github.com/rpratap2111/portfind/internal/risk"
@@ -22,6 +24,11 @@ func Run(ins inspector.PortInspector) (Result, error) {
 		return Result{}, err
 	}
 	warnings := append(res.Warnings, provenance.Annotate(res.Entries)...)
-	risk.Annotate(res.Entries)
-	return Result{Entries: res.Entries, Warnings: warnings}, nil
+	// Docker comes after provenance (a container's Compose project replaces
+	// whatever Docker's own process resolved to) and before risk (containers
+	// are tiered by image).
+	entries, dockerWarnings := docker.Annotate(res.Entries)
+	warnings = append(warnings, dockerWarnings...)
+	risk.Annotate(entries)
+	return Result{Entries: entries, Warnings: warnings}, nil
 }

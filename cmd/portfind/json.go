@@ -26,6 +26,10 @@ type jsonPort struct {
 	Command       *string `json:"command"`
 	ParentPID     *int    `json:"parent_pid"`
 	ParentProcess *string `json:"parent_process"`
+	// Set when the port is published by a Docker container: process is then
+	// the container's name, and pid is Docker's own process.
+	ContainerID *string `json:"container_id"`
+	Image       *string `json:"image"`
 }
 
 // writeJSON writes a scan as indented JSON.
@@ -52,6 +56,8 @@ func toJSONPort(e inspector.PortEntry) jsonPort {
 		Project:       nonEmpty(e.ProjectName),
 		Command:       nonEmpty(e.Command),
 		ParentProcess: nonEmpty(e.ParentProcess),
+		ContainerID:   nonEmpty(e.ContainerID),
+		Image:         nonEmpty(e.Image),
 	}
 	if e.AgeSeconds >= 0 {
 		age := e.AgeSeconds

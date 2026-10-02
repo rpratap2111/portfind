@@ -2,6 +2,7 @@ package tui
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -177,5 +178,51 @@ func TestSelectionScrollsIntoView(t *testing.T) {
 	}
 	if m.selectedIndex < m.offset || m.selectedIndex >= m.offset+5 {
 		t.Fatalf("selected %d not within drawn rows [%d,%d)", m.selectedIndex, m.offset, m.offset+5)
+	}
+}
+
+func TestUpdateNotice(t *testing.T) {
+	ports := []inspector.PortEntry{entry(3000, 1, "node", "")}
+
+	m := newTestModel(t, ports)
+	if cmd := m.Init(); cmd == nil {
+		t.Fatal("Init should always start the refresh tick")
+	}
+	if strings.Contains(m.View(), "available") {
+		t.Fatal("no notice expected before any check")
+	}
+
+	m.send(t, updateCheckedMsg{latest: "v9.9.9", newer: true})
+	if !strings.Contains(m.View(), "v9.9.9 available: run portfind --update") {
+		t.Fatal("update notice missing from the status line")
+	}
+
+	m = newTestModel(t, ports)
+	m.send(t, updateCheckedMsg{latest: "v1.0.0", newer: false})
+	if strings.Contains(m.View(), "available") {
+		t.Fatal("no notice expected when already up to date")
+	}
+
+	m = newTestModel(t, ports)
+	m.send(t, updateCheckedMsg{err: errors.New("dial tcp: no such host")})
+	if strings.Contains(m.View(), "available") || strings.Contains(m.View(), "no such host") {
+		t.Fatal("a failed check must not disturb the main view")
+	}
+	m.send(t, tea.KeyMsg{Type: tea.KeyCtrlW})
+	if !strings.Contains(m.View(), "update check: dial tcp: no such host") {
+		t.Fatal("a failed check should be listed in the warnings view")
+	}
+}
+
+func TestWithUpdateCheckRunsOnInit(t *testing.T) {
+	m := newTestModel(t, []inspector.PortEntry{entry(3000, 1, "node", "")})
+	called := false
+	mm := m.WithUpdateCheck(func() (string, bool, error) { called = true; return "v2.0.0", true, nil })
+	if mm.Init() == nil {
+		t.Fatal("Init returned no command")
+	}
+	// The check runs as a command, off the UI path; Init itself must not call it.
+	if called {
+		t.Fatal("the update check must not run synchronously in Init")
 	}
 }

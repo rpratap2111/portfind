@@ -280,7 +280,7 @@ func (a *app) kill(e inspector.PortEntry) {
 		}
 	}
 
-	if err := kill.Terminate(a.ins, targetOf(e)); err != nil {
+	if err := kill.Terminate(a.ins, kill.TargetOf(e)); err != nil {
 		a.notify(killFailedTitle(e), err.Error(), notifyError)
 		return
 	}

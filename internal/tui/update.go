@@ -32,12 +32,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tickID++
 		return m, tickCmd(m.tickID)
 
+	case updateCheckedMsg:
+		m.updateErr = msg.err
+		if msg.err == nil && msg.newer {
+			m.updateAvailable = msg.latest
+		}
+		return m, nil
+
 	case killDoneMsg:
 		m.killing = false
 		t := msg.target
-		if msg.err != nil {
+		switch {
+		case msg.err != nil && t.ContainerID != "":
+			m.setStatus(statusError, "Stop failed: "+msg.err.Error())
+		case msg.err != nil:
 			m.setStatus(statusError, "Kill failed: "+msg.err.Error())
-		} else {
+		case t.ContainerID != "":
+			// Only this row: the PID is Docker's own and holds other ports too.
+			m.markKilledRow(rowKey{t.Port, t.PID})
+			m.setStatus(statusSuccess, fmt.Sprintf("Stopped container %s on :%d", t.Process, t.Port))
+		default:
 			m.markKilled(t.PID) // logged to history when the rescan sees it gone
 			m.setStatus(statusSuccess, fmt.Sprintf("Killed %s (PID %d) on :%d", t.Process, t.PID, t.Port))
 		}
@@ -169,7 +183,7 @@ func (m Model) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) cancelKill() (tea.Model, tea.Cmd) {
-	m.setStatus(statusInfo, fmt.Sprintf("Kill cancelled: %s on :%d left running", m.pendingKill.Process, m.pendingKill.Port))
+	m.setStatus(statusInfo, fmt.Sprintf("Cancelled: %s on :%d left running", m.pendingKill.Process, m.pendingKill.Port))
 	m.closeKillDialog()
 	return m, nil
 }
@@ -178,10 +192,14 @@ func (m Model) cancelKill() (tea.Model, tea.Cmd) {
 // result arrives as a killDoneMsg.
 func (m Model) startKill() (tea.Model, tea.Cmd) {
 	e := *m.pendingKill
-	t := kill.Target{PID: e.PID, Port: e.Port, Process: e.Process}
+	t := kill.TargetOf(e)
 	m.closeKillDialog()
 	m.killing = true
-	m.setStatus(statusInfo, fmt.Sprintf("Killing %s (PID %d) on :%d…", t.Process, t.PID, t.Port))
+	if e.IsContainer() {
+		m.setStatus(statusInfo, fmt.Sprintf("Stopping container %s on :%d…", t.Process, t.Port))
+	} else {
+		m.setStatus(statusInfo, fmt.Sprintf("Killing %s (PID %d) on :%d…", t.Process, t.PID, t.Port))
+	}
 	run := m.kill
 	return m, func() tea.Msg { return killDoneMsg{target: t, err: run(t)} }
 }
